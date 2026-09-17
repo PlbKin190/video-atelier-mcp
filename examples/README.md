@@ -13,6 +13,9 @@ and raise no rights question — so this example runs identically anywhere, toda
 sh examples/make_sample_footage.sh
 ```
 
+It uses your local ffmpeg if you have one, and the Docker image otherwise — so you do not need to
+install anything to try the walkthrough.
+
 Swap in your own footage whenever you like; nothing in the walkthrough depends on what the rushes
 show.
 
