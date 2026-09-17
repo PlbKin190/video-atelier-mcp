@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 import { z } from 'zod';
-import { tool, localFile, probe, encode, thumbnail, outputPath, type ToolServer } from './media.js';
+import { tool, localFile, probe, encode, thumbnail, outputPath, type ToolServer, enregistrer } from './media.js';
 import { videoEncoding } from './cut.js';
 
 const formats = { '16:9': { width: 1920, height: 1080 }, '9:16': { width: 1080, height: 1920 }, '1:1': { width: 1080, height: 1080 } } as const;
@@ -21,6 +21,7 @@ export function registerExport(server: ToolServer): void {
   });
   tool(server, 'export_meta', 'Write the ffprobe metadata to a local JSON file.', { input: z.string() }, async ({ input }) => {
     const source = await localFile(input); const metadata = await probe(source); const file = outputPath('json');
-    await writeFile(file, JSON.stringify({ source, exported_at: new Date().toISOString(), metadata }, null, 2)); return { path: file, metadata };
+    await writeFile(file, JSON.stringify({ source, exported_at: new Date().toISOString(), metadata }, null, 2));
+    return { ...(await enregistrer(file)), metadata };
   });
 }

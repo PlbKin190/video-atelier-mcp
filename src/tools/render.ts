@@ -2,7 +2,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, rm, rename, stat, unlink } from 'node:fs/promises';
 import { z } from 'zod';
-import { tool, workDir, ffmpeg, run, probe, mediaPath, atomicJson, readJson, recordPath, idSchema, localFile, type ToolServer } from './media.js';
+import { tool, workDir, ffmpeg, run, probe, mediaPath, atomicJson, readJson, recordPath, idSchema, localFile, enregistrer, type ToolServer } from './media.js';
 import { loadComp, validateComp, totalDuration, compositionSchema, type Composition } from './timeline.js';
 import { videoEncoding } from './cut.js';
 import { mixGraph, type MixInput } from './audio.js';
@@ -62,6 +62,9 @@ async function pump(): Promise<void> {
         job.state = 'running'; job.attempts++; await saveJob(job);
         const output = await render(job, controller.signal);
         if (controller.signal.aborted) { await unlink(output).catch(() => undefined); throw new Error('Rendu annulé'); }
+        // Le rendu fini est un média comme un autre, et son identifiant est celui du job : on peut
+        // donc le redonner tel quel à comp_add_clip, clip_trim ou export_formats.
+        await enregistrer(output, job.id);
         job.output = output; job.state = 'completed'; delete job.error;
       } catch (error) {
         job.state = controller.signal.aborted ? (stopping ? 'queued' : 'cancelled') : 'failed';
@@ -101,7 +104,7 @@ export function registerRender(server: ToolServer): void {
     await saveJob(job); queue.push(job.id); schedule(); return { job_id: job.id, state: 'queued' };
   });
   tool(server, 'render_status', 'Persisted render state (no estimated percentage).', { job_id: idSchema }, async ({ job_id }) => { const { composition: _snapshot, ...job } = await loadJob(job_id); return job; });
-  tool(server, 'render_get_output', 'Return the path of the finished MP4.', { job_id: idSchema }, async ({ job_id }) => { const job = await loadJob(job_id); if (job.state !== 'completed' || !job.output) throw new Error(`Rendu non disponible: ${job.state}`); return { job_id, path: await localFile(job.output) }; });
+  tool(server, 'render_get_output', 'Return the path of the finished MP4.', { job_id: idSchema }, async ({ job_id }) => { const job = await loadJob(job_id); if (job.state !== 'completed' || !job.output) throw new Error(`Rendu non disponible: ${job.state}`); return { job_id, id: job_id, path: await localFile(job.output) }; });
   tool(server, 'render_cancel', 'Cancel a queued job, or kill its running ffmpeg.', { job_id: idSchema }, async ({ job_id }) => {
     const controller = controllers.get(job_id);
     if (controller) { controller.abort(); return { job_id, cancellation_requested: true }; }

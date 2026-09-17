@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { copyFile, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { z } from 'zod';
-import { tool, localFile, workDir, run, encode, outputPath, positive, nonnegative, type ToolServer } from './media.js';
+import { tool, localFile, workDir, run, encode, outputPath, positive, nonnegative, type ToolServer, enregistrer } from './media.js';
 import { videoEncoding } from './cut.js';
 
 function timestamp(seconds: number): string {
@@ -18,7 +18,8 @@ export function registerCaptions(server: ToolServer): void {
       if (!text) throw new Error('Texte vide');
       return `${index + 1}\n${timestamp(segment.start)} --> ${timestamp(segment.end)}\n${text}\n`;
     });
-    const file = outputPath('srt'); await writeFile(file, blocks.join('\n'), 'utf8'); return { path: file, count: segments.length };
+    const file = outputPath('srt'); await writeFile(file, blocks.join('\n'), 'utf8');
+    return { ...(await enregistrer(file)), count: segments.length };
   });
   tool(server, 'captions_burn', 'Burn SRT/ASS subtitles into the picture. Needs an ffmpeg built with libass, plus fonts (both ship in the Docker image).', { input: z.string(), subtitles: z.string() }, async ({ input, subtitles }) => {
     const source = await localFile(subtitles); const extension = path.extname(source).toLowerCase();
@@ -44,7 +45,8 @@ export function registerCaptions(server: ToolServer): void {
       await run(ffmpeg, ['-nostdin', '-y', '-i', await localFile(input), '-vn', '-ac', '1', '-ar', '16000', source]);
       await run(binary, [source, '--model', model, '--output_format', 'srt', '--output_dir', temporary, '--fp16', 'False', ...(language ? ['--language', language] : [])]);
       const text = await readFile(path.join(temporary, 'input.srt'), 'utf8');
-      const destination = outputPath('srt'); await writeFile(destination, text); return { path: destination, model };
+      const destination = outputPath('srt'); await writeFile(destination, text);
+      return { ...(await enregistrer(destination)), model };
     } finally { await rm(temporary, { recursive: true, force: true }); }
   });
 }

@@ -24,7 +24,7 @@ RUN test -n "${SAM2_OFFICIAL_GIT_URL}" && test -n "${TORCH_CPU_INDEX_URL}" \
     && pip check
 # Aucun téléchargement de poids pendant le build. Le futur runner doit
 # déclencher le chargement au premier usage et utiliser ce cache persistant.
-ENV HF_HOME=/work/models SAM2_DEVICE=cpu
+ENV HF_HOME=/work/models ATELIER_SAM2_DEVICE=cpu
 RUN mkdir -p /work/models && chown -R node:node /work
 USER node
 WORKDIR /app

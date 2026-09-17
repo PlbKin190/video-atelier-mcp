@@ -37,8 +37,12 @@ which generation backends are configured.
 
 ## What it does
 
-44 tools, in nine families. Everything writes into one mounted work directory; every output is
-registered as a media in its own right, so the id returned by one tool is accepted by the next.
+44 tools, in nine families. Everything writes into one mounted work directory, and every output of
+the editing tools is registered as a media in its own right — so the id one tool returns is accepted
+by the next, and a render can be trimmed, re-composed or exported without touching a path.
+
+The one exception is the `sam2_*` family: it writes to the output path you give it and returns that
+path, not an id. Import it with `media_import` if you want to carry it further.
 
 | Family | Tools |
 |---|---|
@@ -106,10 +110,18 @@ These tools need the `sam2` Docker profile — see below. The other 37 tools do 
 The SAM2 checkpoint is 2–4 GB. It is deliberately **not** baked into the image: the base image
 stays small, and the model is cached in a volume across runs.
 
+The `sam2` image needs two build arguments, and fails loudly without them — it refuses to guess
+where to install SAM2 and torch from:
+
 ```bash
-docker compose --profile sam2 build
+SAM2_OFFICIAL_GIT_URL=<Meta's SAM2 repository URL> \
+TORCH_CPU_INDEX_URL=<the CPU wheel index for your platform> \
+  docker compose --profile sam2 build
 docker compose --profile sam2 run --rm -T atelier-sam2
 ```
+
+**This profile has never been built or run.** It is written from the pipeline it was ported from,
+not verified end to end, unlike the 37 tools in the base image.
 
 If you call a `sam2_*` tool from the base image, you get a one-line error telling you to use that
 profile — not a Python stack trace.
@@ -176,9 +188,13 @@ if you want to use this to make money, contact the author for a commercial licen
 
 This is a source-available licence, not an OSI-approved open-source one. It is deliberate.
 
-**Commercial licence.** Using this at work, inside a company, or in anything that earns money needs
-a commercial licence. It is granted, not withheld — ask. <!-- TODO: mettre ici l'adresse de contact
-commerciale avant de publier le dépôt. -->
+Charities, schools, public research bodies, public safety and health organisations, environmental
+organisations and government institutions are covered by the free licence too — the licence says so
+explicitly, whatever their funding.
+
+**Commercial licence.** Using this to earn money — including inside a company, for its own internal
+work — needs a commercial licence. It is granted, not withheld: ask.
+<!-- TODO: mettre ici l'adresse de contact commerciale avant de publier le dépôt. -->
 
 Patches are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md), which explains the one grant a
 contributor makes so that contributions can ship inside that commercial licence.

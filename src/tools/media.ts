@@ -113,19 +113,26 @@ export async function probe(file: string): Promise<Probe> { return JSON.parse(aw
 // Toute sortie est enregistrée comme un média de plein droit et rend son identifiant. Sans cela la
 // chaîne casse : `comp_add_clip` exige un identifiant, alors que découpe, concaténation et
 // sous-titres ne rendaient qu'un chemin — mesuré de bout en bout le 17/09/2026.
+// Enregistre un fichier déjà écrit comme média de plein droit. Tout outil qui produit un fichier
+// SANS passer par `encode` doit l'appeler : sinon il rend un chemin que `comp_add_clip`, qui exige
+// un identifiant, ne peut pas recevoir — c'est le défaut qu'une revue a trouvé sur le rendu, les
+// sous-titres et l'export des métadonnées, là où mon propre essai de bout en bout l'avait masqué.
+export async function enregistrer(file: string, id: string = randomUUID()): Promise<{ id: string; path: string }> {
+  const record: MediaRecord = { id, path: file, name: path.basename(file), created_at: new Date().toISOString() };
+  await atomicJson(recordPath('media', id), record);
+  return { id, path: file };
+}
 export async function encode(args: string[], extension = 'mp4'): Promise<{ id: string; path: string }> {
   const id = randomUUID();
   const file = path.join(workDir, 'outputs', `${id}.${extension}`);
   try {
     await run(ffmpeg, ['-nostdin', '-hide_banner', '-y', ...args, file]);
-    const record: MediaRecord = { id, path: file, name: `${id}.${extension}`, created_at: new Date().toISOString() };
-    await atomicJson(recordPath('media', id), record);
-    return { id, path: file };
+    return await enregistrer(file, id);
   } catch (error) { await unlink(file).catch(() => undefined); throw error; }
 }
 export interface MediaRecord { id: string; path: string; name: string; created_at: string }
 export async function mediaPath(id: string): Promise<string> { return localFile((await readJson<MediaRecord>(recordPath('media', id))).path); }
-export async function thumbnail(file: string, at: number, width: number): Promise<{ path: string }> { return encode(['-ss', String(at), '-i', file, '-frames:v', '1', '-vf', `scale=${width}:-2`], 'jpg'); }
+export async function thumbnail(file: string, at: number, width: number): Promise<{ id: string; path: string }> { return encode(['-ss', String(at), '-i', file, '-frames:v', '1', '-vf', `scale=${width}:-2`], 'jpg'); }
 export function registerMedia(server: ToolServer): void {
   tool(server, 'media_import', 'Copy a local file or an HTTP(S) URL into the local media store.', { source: z.string().min(1), name: z.string().max(240).optional() }, async ({ source, name }) => {
     const id = randomUUID(); const remote = /^https?:\/\//i.test(source);
@@ -152,8 +159,10 @@ export function registerMedia(server: ToolServer): void {
   });
   tool(server, 'media_probe', 'Probe a media file with ffprobe.', { media_id: idSchema }, async ({ media_id }) => probe(await mediaPath(media_id)));
   tool(server, 'media_extract_frames', 'Extract frames at a fixed interval (300 max).', { media_id: idSchema, start: nonnegative.default(0), interval: positive.default(1), count: z.number().int().min(1).max(300).default(10), width: z.number().int().min(2).max(4096).default(640) }, async ({ media_id, start, interval, count, width }) => {
-    const file = await mediaPath(media_id); const frames: string[] = [];
-    for (let i = 0; i < count; i++) frames.push((await thumbnail(file, start + interval * i, width)).path); return { frames };
+    const file = await mediaPath(media_id); const frames: Array<{ id: string; path: string }> = [];
+    // thumbnail() passe par encode(), donc chaque image EST déjà un média : on garde son identifiant
+    // au lieu de ne rendre que le chemin, sinon l'agent ne peut plus rien en faire.
+    for (let i = 0; i < count; i++) frames.push(await thumbnail(file, start + interval * i, width)); return { frames };
   });
   tool(server, 'media_thumbnail', 'Extract a single JPEG thumbnail.', { media_id: idSchema, at: nonnegative.default(0), width: z.number().int().min(2).max(4096).default(640) }, async ({ media_id, at, width }) => thumbnail(await mediaPath(media_id), at, width));
 }

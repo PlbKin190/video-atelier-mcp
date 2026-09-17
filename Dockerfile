@@ -20,6 +20,9 @@ RUN apt-get update \
 COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
+# Le pont Python de SAM2 : src/tools/sam2.ts le cherche en ../../python/sam2_runner.py depuis
+# dist/tools. Sans cette copie, les sept outils sam2 échouent même sous le profil sam2.
+COPY --from=build --chown=node:node /app/python ./python
 ENV NODE_ENV=production ATELIER_WORK_DIR=/work
 USER node
 VOLUME ["/work"]
