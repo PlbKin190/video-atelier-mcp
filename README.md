@@ -81,9 +81,12 @@ export_formats    input=… format="9:16"              -> 1080x1920
 ## Screen replacement
 
 `sam2_screen_replace` takes a shot of someone holding a phone or sitting at a laptop and puts your
-content on the screen, following the perspective as the device moves. SAM2 is prompted once, on the
-first frame, and the mask is propagated across the shot; a colour gate narrows the phone mask down
-to the lit screen; the screen is closed into a quadrilateral, and a homography warps the
+content on the screen, following the perspective as the device moves.
+
+Film the device with a green panel where the screen is. SAM2 is prompted once, on the first frame,
+and its mask is propagated across the shot; intersecting a colour gate with that mask isolates the
+panel and nothing else — anything interrupting it that is not green, such as the camera lenses,
+falls out on its own. The result is closed into a quadrilateral, and a homography warps the
 replacement onto it, frame by frame.
 
 ![Screen replacement, stage by stage](docs/images/screen-replacement-stages.png)
