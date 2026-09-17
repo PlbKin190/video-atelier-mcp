@@ -1,0 +1,13 @@
+# Versions relevées dans screen_composite_sam2.py:16-17.
+torch==2.2.2
+numpy<2
+# Variante sans interface graphique pour le conteneur. Versions non épinglées
+# dans la source ; cette liste ne constitue pas un verrou reproductible.
+opencv-python-headless
+huggingface_hub
+tqdm
+# SAM2 n'est PAS fourni ici : la source exige un paquet `sam2` PATCHED
+# dont ni la provenance ni la révision ne sont identifiées. Le profil Docker
+# sam2 doit fournir cette distribution compatible, sans substitution aveugle
+# par un paquet homonyme de PyPI. Torch 2.2.2 n'est pas compatible avec toute
+# distribution SAM2 actuelle. L'installation optionnelle reste à qualifier.

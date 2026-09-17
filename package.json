@@ -1,0 +1,28 @@
+{
+  "name": "video-atelier-mcp",
+  "version": "0.1.0",
+  "description": "Serveur MCP autonome d'édition vidéo, stockage local et transport stdio.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "video-atelier-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "zod": "^3.23.8",
+    "fs-extra": "^11.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "@types/node": "^22.10.2",
+    "@types/fs-extra": "^11.0.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

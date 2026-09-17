@@ -1,0 +1,47 @@
+# Compose récent requis : env_file.required et additional_contexts.
+# Le serveur parle MCP sur stdio : un client s'y branche par
+#   docker compose run --rm -T atelier
+# ou directement par docker run -i (voir le README). `up` démarre le conteneur
+# mais n'est pas à lui seul un client MCP.
+services:
+  atelier:
+    image: video-atelier-mcp:0.1.0
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      # Le dossier hôte doit être accessible à l'utilisateur node (UID 1000).
+      - ./work:/work
+    stdin_open: true
+    tty: false
+
+  atelier-sam2:
+    image: video-atelier-mcp:sam2
+    profiles: [sam2]
+    build:
+      context: .
+      dockerfile: Dockerfile.sam2
+      additional_contexts:
+        atelier_base: service:atelier
+      args:
+        ATELIER_BASE_IMAGE: atelier_base
+        # URL à vérifier : absentes des sources mesurées, pas de valeur inventée.
+        SAM2_OFFICIAL_GIT_URL: ${SAM2_OFFICIAL_GIT_URL:-}
+        TORCH_CPU_INDEX_URL: ${TORCH_CPU_INDEX_URL:-}
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      HF_HOME: /work/models
+      ATELIER_SAM2_DEVICE: cpu
+    volumes:
+      - ./work:/work
+      - sam2-models:/work/models
+    stdin_open: true
+    tty: false
+
+volumes:
+  sam2-models:
