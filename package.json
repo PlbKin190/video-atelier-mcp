@@ -2,7 +2,7 @@
   "name": "video-atelier-mcp",
   "version": "0.1.0",
   "description": "Serveur MCP autonome d'édition vidéo, stockage local et transport stdio.",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "bin": {
     "video-atelier-mcp": "dist/index.js"
@@ -24,5 +24,6 @@
   },
   "engines": {
     "node": ">=20"
-  }
+  },
+  "private": true
 }

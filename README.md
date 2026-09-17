@@ -168,4 +168,10 @@ for SAM2.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+**PolyForm Noncommercial 1.0.0** — see [LICENSE](LICENSE).
+
+Free for any noncommercial purpose: personal use, study, hobby projects, and use by charities,
+schools, public research bodies and government. Commercial use is not granted by this licence —
+if you want to use this to make money, contact the author for a commercial licence.
+
+This is a source-available licence, not an OSI-approved open-source one. It is deliberate.
