@@ -175,3 +175,10 @@ schools, public research bodies and government. Commercial use is not granted by
 if you want to use this to make money, contact the author for a commercial licence.
 
 This is a source-available licence, not an OSI-approved open-source one. It is deliberate.
+
+**Commercial licence.** Using this at work, inside a company, or in anything that earns money needs
+a commercial licence. It is granted, not withheld — ask. <!-- TODO: mettre ici l'adresse de contact
+commerciale avant de publier le dépôt. -->
+
+Patches are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md), which explains the one grant a
+contributor makes so that contributions can ship inside that commercial licence.
