@@ -5,9 +5,19 @@ import { tool, idSchema, positive, nonnegative, recordPath, atomicJson, readJson
 export const audioTrackSchema = z.object({ media_id: idSchema, start: nonnegative.default(0), trim_start: nonnegative.default(0), duration: positive.optional(), volume: z.number().finite().min(0).max(10).default(1) });
 export const clipSchema = z.object({ id: idSchema, media_id: idSchema, in: nonnegative, duration: positive });
 export const overlaySchema = z.object({ id: idSchema, media_id: idSchema, start: nonnegative, duration: positive, x: z.number().int().min(0), y: z.number().int().min(0), width: z.number().int().min(2).max(7680), height: z.number().int().min(2).max(7680) });
+const percentageSchema = z.number().finite().min(0).max(100);
+const textColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Couleur attendue : #RRGGBB');
+export const textOverlaySchema = z.object({
+  id: idSchema, text: z.string().min(1).max(500), start: nonnegative, duration: positive,
+  x_pct: percentageSchema, y_pct: percentageSchema, w_pct: percentageSchema.default(84),
+  font_size_px: positive.default(48), color: textColorSchema.default('#FFFFFF'),
+  bg_color: z.union([textColorSchema, z.literal('transparent')]).default('transparent'),
+  align: z.enum(['left', 'center', 'right']).default('center'), font_family: z.string().optional()
+});
 export const compositionSchema = z.object({
   id: idSchema, name: z.string(), width: z.number().int().positive().multipleOf(2), height: z.number().int().positive().multipleOf(2), fps: z.number().int().positive(), created_at: z.string(), updated_at: z.string(),
   clips: z.array(clipSchema), overlays: z.array(overlaySchema),
+  texts: z.array(textOverlaySchema).default([]),
   transitions: z.array(z.object({ after_clip_id: idSchema, type: z.literal('fade_black'), duration: positive })),
   audio: z.object({ original_volume: z.number().finite().min(0).max(10), tracks: z.array(audioTrackSchema) })
 });
@@ -40,6 +50,13 @@ export async function validateComp(comp: Composition): Promise<{ valid: boolean;
     try { if (!(await probe(await mediaPath(overlay.media_id))).streams.some(s => s.codec_type === 'video')) errors.push(`Overlay ${overlay.id}: image/vidéo requise`); }
     catch (error) { errors.push(`Overlay ${overlay.id}: ${String(error)}`); }
   }
+  for (const text of comp.texts) {
+    const parsed = textOverlaySchema.safeParse(text);
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) errors.push(`Texte ${text.id}: ${issue.path.join('.')}: ${issue.message}`);
+    }
+    if (text.start >= duration || text.start + text.duration > duration) errors.push(`Texte ${text.id}: dépasse la composition`);
+  }
   for (const transition of comp.transitions) {
     const index = comp.clips.findIndex(clip => clip.id === transition.after_clip_id);
     if (index < 0 || index === comp.clips.length - 1) errors.push('Transition sans paire de clips');
@@ -59,7 +76,7 @@ export async function validateComp(comp: Composition): Promise<{ valid: boolean;
 export function registerTimeline(server: ToolServer): void {
   tool(server, 'comp_create', 'Create a sequential composition, stored locally as JSON. No API, no database.', { name: z.string().min(1).max(240), width: z.number().int().min(2).max(7680).multipleOf(2).default(1920), height: z.number().int().min(2).max(7680).multipleOf(2).default(1080), fps: z.number().int().min(1).max(120).default(30) }, async args => {
     const now = new Date().toISOString();
-    const comp: Composition = { ...args, id: randomUUID(), created_at: now, updated_at: now, clips: [], overlays: [], transitions: [], audio: { original_volume: 1, tracks: [] } };
+    const comp: Composition = { ...args, id: randomUUID(), created_at: now, updated_at: now, clips: [], overlays: [], texts: [], transitions: [], audio: { original_volume: 1, tracks: [] } };
     await saveComp(comp); return comp;
   });
   tool(server, 'comp_add_clip', 'Append a video clip to the composition.', { comp_id: idSchema, media_id: idSchema, in: nonnegative.default(0), duration: positive }, async ({ comp_id, ...clip }) => { await mediaPath(clip.media_id); return mutateComp(comp_id, comp => { comp.clips.push({ id: randomUUID(), ...clip }); }); });
@@ -73,4 +90,18 @@ export function registerTimeline(server: ToolServer): void {
   tool(server, 'comp_set_audio_mix', 'Replace the audio mix of a composition.', { comp_id: idSchema, original_volume: z.number().finite().min(0).max(10).default(1), tracks: z.array(audioTrackSchema).max(32) }, async ({ comp_id, ...audio }) => mutateComp(comp_id, comp => { comp.audio = audio; }));
   tool(server, 'comp_get_timeline', 'Read the composition JSON and its total duration.', { comp_id: idSchema }, async ({ comp_id }) => { const comp = await loadComp(comp_id); return { ...comp, duration: totalDuration(comp) }; });
   tool(server, 'comp_validate', 'Validate references, time ranges, transitions and media before rendering.', { comp_id: idSchema }, async ({ comp_id }) => validateComp(await loadComp(comp_id)));
+  tool(server, 'comp_add_text', 'Add a text overlay with percentage positions.', { comp_id: idSchema, ...textOverlaySchema.omit({ id: true }).shape }, async ({ comp_id, ...text }) => mutateComp(comp_id, comp => {
+    comp.texts.push(textOverlaySchema.parse({ id: randomUUID(), ...text }));
+  }));
+  tool(server, 'comp_update_text', 'Update only supplied fields of a text overlay.', { comp_id: idSchema, text_id: idSchema, ...textOverlaySchema.omit({ id: true }).partial().shape }, async ({ comp_id, text_id, ...changes }) => mutateComp(comp_id, comp => {
+    const index = comp.texts.findIndex(text => text.id === text_id);
+    if (index < 0) throw new Error(`Texte introuvable: ${text_id}`);
+    const supplied = Object.fromEntries(Object.entries(changes).filter(([, value]) => value !== undefined));
+    comp.texts[index] = textOverlaySchema.parse({ ...comp.texts[index]!, ...supplied });
+  }));
+  tool(server, 'comp_remove_text', 'Remove a text overlay by its identifier.', { comp_id: idSchema, text_id: idSchema }, async ({ comp_id, text_id }) => mutateComp(comp_id, comp => {
+    const index = comp.texts.findIndex(text => text.id === text_id);
+    if (index < 0) throw new Error(`Texte introuvable: ${text_id}`);
+    comp.texts.splice(index, 1);
+  }));
 }

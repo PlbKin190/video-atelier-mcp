@@ -12,6 +12,7 @@ import { registerRender, recoverRenders, stopRenders } from './tools/render.js';
 import { registerGenerate } from './tools/generate.js';
 import { registerSam2 } from './tools/sam2.js';
 import { registerExport } from './tools/export.js';
+import { registerUi } from './tools/ui.js';
 
 // Contrat substituable de résolution des rushes existants.
 export interface GenerationConnector {
@@ -41,8 +42,10 @@ registerRender(server);
 registerExport(server);
 registerGenerate(server);
 registerSam2(server);
+registerUi(server);
 tool(server, 'health_check', 'Check binaries, codecs, filters and local write access; report which backends are configured.', {}, async () => {
   const checks: Record<string, { ok: boolean; detail: string }> = {};
+  checks['ui'] = { ok: true, detail: 'Interface locale à la demande : ui_start / ui_stop ; construire web-dist ou utiliser l’image Docker qui la contient. Disponibilité vérifiée par ui_start.' };
   for (const [name, binary] of [['ffmpeg', ffmpeg], ['ffprobe', ffprobe]] as const) {
     try { checks[name] = { ok: true, detail: (await run(binary, ['-version'])).split('\n')[0] || binary }; }
     catch (error) { checks[name] = { ok: false, detail: String(error) }; }

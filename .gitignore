@@ -5,3 +5,7 @@ work/
 models/
 *.log
 .DS_Store
+
+# Interface : dépendances et artefact de construction
+web/node_modules/
+web-dist/

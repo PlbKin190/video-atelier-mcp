@@ -7,6 +7,15 @@ import { loadComp, validateComp, totalDuration, compositionSchema, type Composit
 import { videoEncoding } from './cut.js';
 import { mixGraph, type MixInput } from './audio.js';
 
+const textFont = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf';
+function escapeDrawtext(text: string): string {
+  // Two parsers, no shell: option value first, filtergraph second.
+  // Preserve actual LF for multiline drawing, including leading/trailing whitespace.
+  // expansion=none below also prevents interpretation of literal %{...} sequences.
+  const option = text.replace(/\r\n?/g, '\n').replace(/[\\':%\s]/g, character => '\\' + character);
+  return option.replace(/[\\'\[\],;\s]/g, character => '\\' + character);
+}
+
 type State = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 interface Job { id: string; comp_id: string; composition: Composition; state: State; created_at: string; updated_at: string; attempts: number; output?: string; error?: string }
 const controllers = new Map<string, AbortController>();
@@ -18,6 +27,9 @@ async function command(args: string[], signal: AbortSignal): Promise<void> { awa
 async function render(job: Job, signal: AbortSignal): Promise<string> {
   const comp = compositionSchema.parse(job.composition); const validation = await validateComp(comp);
   if (!validation.valid) throw new Error(validation.errors.join('\n'));
+  if (comp.texts.length && !(await stat(textFont).catch(() => null))?.isFile()) {
+    throw new Error(`Police drawtext absente: ${textFont}. Installer le paquet fonts-dejavu-core.`);
+  }
   const directory = path.join(workDir, 'renders', job.id); await mkdir(directory, { recursive: true });
   const files: string[] = []; const duration = totalDuration(comp);
   try {
@@ -42,6 +54,18 @@ async function render(job: Job, signal: AbortSignal): Promise<string> {
       const next = path.join(directory, `overlay-${i}.mp4`);
       const graph = `[1:v:0]scale=${overlay.width}:${overlay.height},setsar=1,setpts=PTS-STARTPTS+${overlay.start}/TB[ov];[0:v:0][ov]overlay=x=${overlay.x}:y=${overlay.y}:enable='between(t,${overlay.start},${overlay.start + overlay.duration})':eof_action=repeat[v]`;
       await command(['-i', visual, '-i', await mediaPath(overlay.media_id), '-filter_complex', graph, '-map', '[v]', '-map', '0:a:0', ...videoEncoding, '-c:a', 'copy', '-t', String(duration), next], signal); visual = next;
+    }
+    for (const [i, text] of comp.texts.entries()) {
+      const next = path.join(directory, `text-${i}.mp4`);
+      const left = comp.width * text.x_pct / 100;
+      const top = comp.height * text.y_pct / 100;
+      const width = comp.width * text.w_pct / 100;
+      // w_pct is an alignment area, not automatic wrapping. font_family is metadata;
+      // the portable render uses the required fixed font from fonts-dejavu-core.
+      const x = text.align === 'left' ? String(left) : text.align === 'right' ? `${left}+${width}-text_w` : `${left}+(${width}-text_w)/2`;
+      const box = text.bg_color === 'transparent' ? '' : `:box=1:boxcolor=${text.bg_color}`;
+      const filter = `drawtext=fontfile=${textFont}:text=${escapeDrawtext(text.text)}:expansion=none:fontsize=${text.font_size_px}:fontcolor=${text.color}:x=${x}:y=${top}${box}:enable='between(t,${text.start},${text.start + text.duration})'`;
+      await command(['-i', visual, '-vf', filter, '-map', '0:v:0', '-map', '0:a:0', ...videoEncoding, '-c:a', 'copy', '-t', String(duration), next], signal); visual = next;
     }
     const tracks: MixInput[] = [{ path: visual, volume: comp.audio.original_volume, start: 0, trim_start: 0 }];
     for (const track of comp.audio.tracks) tracks.push({ ...track, path: await mediaPath(track.media_id) });
