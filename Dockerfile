@@ -7,7 +7,11 @@ COPY package.json tsconfig.json ./
 COPY package-lock.json ./
 RUN npm ci
 COPY . .
-RUN npm run build && npm prune --omit=dev
+RUN npm run build
+# L'interface visuelle : ses dépendances sont propres au dossier web/ et ne partent pas dans
+# l'image finale, seul l'artefact web-dist/ y va.
+RUN cd web && npm ci && npm run build
+RUN npm prune --omit=dev
 
 FROM node:20-bookworm-slim AS runtime
 WORKDIR /app
@@ -23,6 +27,7 @@ COPY --from=build --chown=node:node /app/dist ./dist
 # Le pont Python de SAM2 : src/tools/sam2.ts le cherche en ../../python/sam2_runner.py depuis
 # dist/tools. Sans cette copie, les sept outils sam2 échouent même sous le profil sam2.
 COPY --from=build --chown=node:node /app/python ./python
+COPY --from=build --chown=node:node /app/web-dist ./web-dist
 ENV NODE_ENV=production ATELIER_WORK_DIR=/work
 USER node
 VOLUME ["/work"]

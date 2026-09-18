@@ -97,6 +97,27 @@ replacement onto it, frame by frame.
 
 These tools need the `sam2` Docker profile — see below. The other 37 tools do not.
 
+## Taking over by hand
+
+The agent builds; you finish. `ui_start` serves the editor the tools write into, on
+`127.0.0.1:4321`, and `ui_stop` takes it down.
+
+```
+ui_start  ->  { "url": "http://127.0.0.1:4321" }
+```
+
+Pick a composition in the sidebar and you get the real thing: video preview, an inspector for the
+selected overlay, a timeline with frame thumbnails and audio tracks, rich text with per-run styling,
+and the SAM2 tracking panel. What you change is saved straight back into the composition JSON, so
+the next agent call sees your edits — and every save keeps a version you can restore.
+
+Text overlays are first-class in the model, not a preview trick: `comp_add_text`, `comp_update_text`
+and `comp_remove_text` do from the agent side exactly what the editor does from yours, and
+`render_start` burns them in with `drawtext`.
+
+The editor is served from `web-dist/`, which the Docker image builds. Outside the image, build it
+once with `cd web && npm ci && npm run build`.
+
 ## Dependencies
 
 | What | Where it comes from | Needed for |
@@ -168,7 +189,8 @@ Stated plainly, because they are the difference between a demo and a tool:
 - **The `sam2` image installs SAM2 from Meta's official repository.** The version this was
   originally built against was a locally patched one whose source could not be identified; check
   that the official package behaves as you need before relying on it.
-- **No web UI, and no Remotion bridge.** This is an MCP server; the agent is the interface.
+- **No Remotion bridge.** The editor below covers hand editing; template-driven React rendering
+  was left behind on purpose, to keep a browser out of the image.
 - **The work directory is trusted.** Paths are confined to it, but there is no sandbox and no SSRF
   filtering on `media_import` URLs. Do not expose this server to untrusted callers.
 
