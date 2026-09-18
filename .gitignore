@@ -9,3 +9,4 @@ models/
 # Interface : dépendances et artefact de construction
 web/node_modules/
 web-dist/
+livrables/

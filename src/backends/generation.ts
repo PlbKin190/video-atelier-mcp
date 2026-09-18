@@ -24,7 +24,7 @@ export interface VideoGenerationBackend {
 }
 interface StoredJob { id: string; backend: GenerationBackendName; source?: string; remoteId?: string }
 
-// Le contrat generate attend des chemins relatifs. Le confinement réel est commun.
+// The generate contract expects relative paths. Actual confinement is shared.
 function relativeSource(source: string): string {
   if (!source || path.isAbsolute(source) || source.includes("\0")) throw new Error("Chemin relatif au dossier de travail attendu.");
   const target = path.resolve(workDir, source);
@@ -33,11 +33,11 @@ function relativeSource(source: string): string {
   return target;
 }
 function validId(id: string): void {
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) throw new Error("Identifiant de génération invalide.");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) throw new Error("Invalid generation identifier.");
 }
 async function save(job: StoredJob): Promise<void> {
   const target = await newWorkFile(`generation/jobs/${job.id}.json`);
-  // Identifiant aléatoire, fichier exclusif ; aucune composition distante ni base.
+  // Random identifier, exclusive file ; no remote composition or database.
   await fs.writeFile(target, JSON.stringify(job), { flag: "wx", mode: 0o600 });
 }
 async function load(id: string, backend?: GenerationBackendName): Promise<StoredJob> {
@@ -49,7 +49,7 @@ async function load(id: string, backend?: GenerationBackendName): Promise<Stored
 
 export class LocalVideoGenerationBackend implements VideoGenerationBackend {
   async launch(request: VideoGenerationRequest): Promise<VideoGenerationJob> {
-    if (!request.source) throw new Error("local : source est obligatoire (rush existant sous ATELIER_WORK_DIR), aucune clé nécessaire.");
+    if (!request.source) throw new Error("local : source is required (existing footage under ATELIER_WORK_DIR), no key needed.");
     await localFile(relativeSource(request.source));
     const job: StoredJob = { id: randomUUID(), backend: "local", source: request.source };
     await save(job);
@@ -71,17 +71,17 @@ export class LocalVideoGenerationBackend implements VideoGenerationBackend {
   }
 }
 
-/** 2026-09-17 — Connecteur de compatibilité EN FIN DE VIE.
- * Calendrier de retrait, relevé le 17/09/2026 sur les pages officielles : sora-2
- * quitte l'API OpenAI le 24/09/2026 ; la version Azure 2025-12-08 cesse le 15/10/2026.
- * Le contrat porté utilise néanmoins api-version=preview, comme la source.
- * Source : studio-genai-mcp/src/sora.ts:26-108. Ne pas choisir par défaut.
+/** 2026-09-17 — END-OF-LIFE compatibility connector.
+ * Retirement schedule, recorded on 17/09/2026 from the official pages: sora-2
+ * leaves the OpenAI API on 24/09/2026; Azure version 2025-12-08 ends on 15/10/2026.
+ * The ported contract nevertheless uses api-version=preview, like the source.
+ * Source: studio-genai-mcp/src/sora.ts:26-108. Do not select by default.
  */
 export class AzureSoraVideoGenerationBackend implements VideoGenerationBackend {
   private config(): { endpoint: string; secret: string } {
     const endpoint = (process.env.AZURE_SORA_ENDPOINT || "").replace(/\/+$/, "");
     const secret = process.env.AZURE_SORA_API_KEY || "";
-    if (!endpoint || !secret) throw new Error("azure-sora exige AZURE_SORA_ENDPOINT et AZURE_SORA_API_KEY ; choisir local pour fonctionner sans clé.");
+    if (!endpoint || !secret) throw new Error("azure-sora requires AZURE_SORA_ENDPOINT and AZURE_SORA_API_KEY ; choose local to run without a key.");
     const url = new URL(endpoint);
     if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) throw new Error("Endpoint Azure HTTPS sans identifiants, query ni fragment attendu.");
     return { endpoint, secret };
@@ -95,7 +95,7 @@ export class AzureSoraVideoGenerationBackend implements VideoGenerationBackend {
       redirect: "error",
       signal: AbortSignal.timeout(300_000),
     });
-    // Ne jamais recopier corps/headers de l'API : ils peuvent contenir des secrets.
+    // Never copy API bodies/headers: they may contain secrets.
     if (!response.ok) {
       await response.body?.cancel();
       throw new Error(`Azure Sora : HTTP ${response.status}. Connecteur en fin de vie ; local reste disponible.`);
@@ -106,11 +106,11 @@ export class AzureSoraVideoGenerationBackend implements VideoGenerationBackend {
     if (!request.prompt?.trim()) throw new Error("azure-sora : prompt obligatoire.");
     const seconds = request.seconds ?? "4";
     const size = request.size ?? "1280x720";
-    if (!["4", "8", "12"].includes(seconds) || !["1280x720", "720x1280", "1024x1792", "1792x1024"].includes(size)) throw new Error("Durée ou taille Sora invalide.");
+    if (!["4", "8", "12"].includes(seconds) || !["1280x720", "720x1280", "1024x1792", "1792x1024"].includes(size)) throw new Error("Invalid Sora duration or size.");
     const data = await (await this.request("", {
       model: process.env.AZURE_SORA_DEPLOYMENT || "sora-2", prompt: request.prompt, seconds, size,
     })).json() as Record<string, unknown>;
-    if (typeof data.id !== "string" || !data.id || typeof data.status !== "string") throw new Error("Réponse de création Sora invalide.");
+    if (typeof data.id !== "string" || !data.id || typeof data.status !== "string") throw new Error("Invalid Sora creation response.");
     const job: StoredJob = { id: randomUUID(), backend: "azure-sora", remoteId: data.id };
     await save(job);
     return { id: job.id, backend: job.backend, status: data.status === "succeeded" ? "completed" : data.status };
@@ -119,16 +119,16 @@ export class AzureSoraVideoGenerationBackend implements VideoGenerationBackend {
     const job = await load(id, "azure-sora");
     if (!job.remoteId) throw new Error("Identifiant distant manquant.");
     const data = await (await this.request(`/${encodeURIComponent(job.remoteId)}`)).json() as Record<string, unknown>;
-    if (typeof data.status !== "string") throw new Error("Réponse d'état Sora invalide.");
+    if (typeof data.status !== "string") throw new Error("Invalid Sora status response.");
     return { id, backend: job.backend, status: data.status === "succeeded" ? "completed" : data.status };
   }
   async download(id: string, destination: string): Promise<{ path: string; size: number }> {
-    if ((await this.status(id)).status !== "completed") throw new Error("Génération non terminée avec succès.");
+    if ((await this.status(id)).status !== "completed") throw new Error("Generation has not completed successfully.");
     const job = await load(id, "azure-sora");
     if (!job.remoteId) throw new Error("Identifiant distant manquant.");
     const target = await newWorkFile(destination);
     const response = await this.request(`/${encodeURIComponent(job.remoteId)}/content`);
-    if (!response.body) throw new Error("Contenu vidéo absent.");
+    if (!response.body) throw new Error("Video content missing.");
     let handle;
     try { handle = await fs.open(target, "wx", 0o600); } catch (error) {
       await response.body.cancel(); throw error;
@@ -143,7 +143,7 @@ export class AzureSoraVideoGenerationBackend implements VideoGenerationBackend {
           let offset = 0;
           while (offset < value.length) {
             const written = await handle.write(value, offset, value.length - offset);
-            if (!written.bytesWritten) throw new Error("Écriture vidéo interrompue.");
+            if (!written.bytesWritten) throw new Error("Video write interrupted.");
             offset += written.bytesWritten;
           }
           size += value.length;

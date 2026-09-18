@@ -25,8 +25,8 @@
       if (!response.ok) throw new Error(`Chargement impossible (HTTP ${response.status}).`);
       const body: unknown = await response.json();
       if (request !== current) return;
-      // L'API répond { id, output_assets } ; l'éditeur attend le CONTENU d'output_assets.
-      // Lui passer l'enveloppe donne une timeline sans vidéo et « Aucune video ».
+      // The API returns { id, output_assets } ; the editor expects the CONTENT of output_assets.
+      // Passing it the envelope produces a timeline without video and “No video”.
       data = (body as { output_assets?: unknown } | null)?.output_assets ?? body;
     } catch (error) {
       if (current.signal.aborted) return;
@@ -88,7 +88,7 @@
     {:else if editorError}
       <div class="placeholder" role="alert">
         <p class="error">{editorError}</p>
-        <button onclick={() => selectMontage(selected)}>Réessayer</button>
+        <button onclick={() => selectMontage(selected)}>Retry</button>
       </div>
     {:else if data !== null}
       {#key selected}
@@ -97,7 +97,7 @@
     {:else if !loadingList && !listError && montages.length === 0}
       <div class="placeholder">
         <h2>Nothing to edit yet</h2>
-        <p>Créez un montage avec l’agent, puis rechargez cette page pour le reprendre ici.</p>
+        <p>Create an edit with the agent, then reload this page to continue it here.</p>
       </div>
     {:else}
       <p class="placeholder">Pick a composition in the sidebar.</p>

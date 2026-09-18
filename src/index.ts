@@ -14,7 +14,7 @@ import { registerSam2 } from './tools/sam2.js';
 import { registerExport } from './tools/export.js';
 import { registerUi } from './tools/ui.js';
 
-// Contrat substituable de résolution des rushes existants.
+// Replaceable contract for resolving existing footage.
 export interface GenerationConnector {
   readonly id: string;
   readonly configured: boolean;
@@ -24,12 +24,12 @@ export const localConnector: GenerationConnector = {
   id: 'local', configured: true,
   async resolve({ media_id }) { return { path: await mediaPath(media_id) }; }
 };
-// Dates issues du cahier des charges, non vérifiées par une source réseau.
-// Présence de configuration ne signifie pas disponibilité distante.
+// Dates from the specification, not verified against an online source.
+// The presence of configuration does not imply remote availability.
 function connectorStatus() {
   return [
     { id: localConnector.id, configured: localConnector.configured, mode: 'existing_media' },
-    { id: 'azure-sora', registered: true, configured: Boolean(process.env.AZURE_SORA_ENDPOINT && process.env.AZURE_SORA_API_KEY), availability: 'not_checked', lifecycle: 'end_of_life', api_retirement: '2026-09-24', azure_version_retirement: '2026-10-15', reason: 'Connecteur de compatibilité enregistré ; accès distant vérifié uniquement à la demande' }
+    { id: 'azure-sora', registered: true, configured: Boolean(process.env.AZURE_SORA_ENDPOINT && process.env.AZURE_SORA_API_KEY), availability: 'not_checked', lifecycle: 'end_of_life', api_retirement: '2026-09-24', azure_version_retirement: '2026-10-15', reason: 'Compatibility connector registered ; remote access checked only on demand' }
   ];
 }
 const server = new McpServer({ name: 'video-atelier-mcp', version: '0.1.0' });
@@ -45,7 +45,7 @@ registerSam2(server);
 registerUi(server);
 tool(server, 'health_check', 'Check binaries, codecs, filters and local write access; report which backends are configured.', {}, async () => {
   const checks: Record<string, { ok: boolean; detail: string }> = {};
-  checks['ui'] = { ok: true, detail: 'Interface locale à la demande : ui_start / ui_stop ; construire web-dist ou utiliser l’image Docker qui la contient. Disponibilité vérifiée par ui_start.' };
+  checks['ui'] = { ok: true, detail: 'Local UI on demand : ui_start / ui_stop ; build web-dist or use the Docker image that contains it. Availability checked by ui_start.' };
   for (const [name, binary] of [['ffmpeg', ffmpeg], ['ffprobe', ffprobe]] as const) {
     try { checks[name] = { ok: true, detail: (await run(binary, ['-version'])).split('\n')[0] || binary }; }
     catch (error) { checks[name] = { ok: false, detail: String(error) }; }
@@ -54,12 +54,12 @@ tool(server, 'health_check', 'Check binaries, codecs, filters and local write ac
     const encoders = await run(ffmpeg, ['-hide_banner', '-encoders']);
     checks['render_codecs'] = { ok: /\blibx264\b/.test(encoders) && /\baac\b/.test(encoders), detail: 'Requis: libx264, aac' };
     const filters = await run(ffmpeg, ['-hide_banner', '-filters']);
-    checks['captions_burn'] = { ok: /\bsubtitles\b/.test(filters), detail: 'Filtre subtitles/libass requis; polices à installer dans l’image' };
+    checks['captions_burn'] = { ok: /\bsubtitles\b/.test(filters), detail: 'subtitles/libass filter required; fonts must be installed in the image' };
   } catch (error) { checks['ffmpeg_capabilities'] = { ok: false, detail: String(error) }; }
   const testFile = path.join(workDir, 'tmp', `health-${randomUUID()}`);
   try { await writeFile(testFile, 'ok', { flag: 'wx' }); await unlink(testFile); checks['work_dir'] = { ok: true, detail: workDir }; }
   catch (error) { checks['work_dir'] = { ok: false, detail: String(error) }; }
-  return { ok: Object.values(checks).every(check => check.ok), checks, connectors: connectorStatus(), registered_modules: ['media', 'timeline', 'cut', 'captions', 'audio', 'render', 'export', 'generate', 'sam2'], optional: { whisper: 'CLI externe, vérifiée à la demande', generate: '3 outils enregistrés ; local sans clé, Azure optionnel en fin de vie', sam2: '7 outils enregistrés ; Python, dépendances et modèles vérifiés à la demande, hors image de base' }, tools: 44 };
+  return { ok: Object.values(checks).every(check => check.ok), checks, connectors: connectorStatus(), registered_modules: ['media', 'timeline', 'cut', 'captions', 'audio', 'render', 'export', 'generate', 'sam2'], optional: { whisper: 'External CLI, checked on demand', generate: '3 tools registered ; local requires no key, optional Azure at end of life', sam2: '7 tools registered ; Python, dependencies and models checked on demand, not included in the base image' }, tools: 44 };
 });
 let shuttingDown = false;
 async function shutdown(): Promise<void> {
@@ -74,4 +74,4 @@ async function main(): Promise<void> {
   await recoverRenders();
   await server.connect(new StdioServerTransport());
 }
-void main().catch(error => { console.error('Démarrage impossible:', error); process.exitCode = 1; void shutdown().catch(console.error); });
+void main().catch(error => { console.error('Unable to start:', error); process.exitCode = 1; void shutdown().catch(console.error); });

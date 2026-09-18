@@ -1,8 +1,8 @@
-# Compose récent requis : env_file.required et additional_contexts.
-# Le serveur parle MCP sur stdio : un client s'y branche par
+# Recent Compose required : env_file.required and additional_contexts.
+# The server speaks MCP over stdio: a client connects via
 #   docker compose run --rm -T atelier
-# ou directement par docker run -i (voir le README). `up` démarre le conteneur
-# mais n'est pas à lui seul un client MCP.
+# or directly via docker run -i (see the README). `up` starts the container
+# but is not an MCP client on its own.
 services:
   atelier:
     image: video-atelier-mcp:0.1.0
@@ -13,7 +13,7 @@ services:
       - path: .env
         required: false
     volumes:
-      # Le dossier hôte doit être accessible à l'utilisateur node (UID 1000).
+      # The host directory must be accessible to the node user (UID 1000).
       - ./work:/work
     stdin_open: true
     tty: false
@@ -28,7 +28,7 @@ services:
         atelier_base: service:atelier
       args:
         ATELIER_BASE_IMAGE: atelier_base
-        # URL à vérifier : absentes des sources mesurées, pas de valeur inventée.
+        # URLs to verify: absent from the inspected sources, no invented values.
         SAM2_OFFICIAL_GIT_URL: ${SAM2_OFFICIAL_GIT_URL:-}
         TORCH_CPU_INDEX_URL: ${TORCH_CPU_INDEX_URL:-}
     env_file:

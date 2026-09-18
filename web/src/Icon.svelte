@@ -1,7 +1,7 @@
 <!--
-  L'éditeur d'origine tirait ses icônes d'une bibliothèque entière du Studio. Il n'en utilise que
-  trois : Film, Mic et Music, sur les en-têtes de pistes. On les redessine ici, ce qui évite de
-  porter la bibliothèque et garde les trois appels inchangés.
+  The original editor sourced its icons from an entire Studio library. It only uses
+  three : Film, Mic and Music, on track headers. We redraw them here, which avoids
+  porting the library and keeps the three calls unchanged.
 -->
 <script lang="ts">
   let { name, size = 14 }: { name: string; size?: number } = $props();

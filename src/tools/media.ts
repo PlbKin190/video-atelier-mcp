@@ -16,8 +16,8 @@ export const idSchema = z.string().uuid();
 export const positive = z.number().finite().positive();
 export const nonnegative = z.number().finite().nonnegative();
 export type ToolServer = McpServer;
-// Élargir uniquement la frontière SDK : le schéma effectif reste celui de T.
-// Les arguments du rappel sont validés par ce schéma avant leur transmission.
+// Widen only the SDK boundary: the effective schema remains that of T.
+// The callback arguments are validated against this schema before being passed through.
 export function tool<T extends z.ZodRawShape>(server: ToolServer, name: string, description: string, shape: T, fn: (args: z.infer<z.ZodObject<T>>) => Promise<unknown>): void {
   const inputSchema: z.ZodRawShape = shape;
   server.registerTool(name, { description, inputSchema }, async args => {
@@ -45,7 +45,7 @@ async function cheminValide(input: string): Promise<string> {
   if (!resolved.startsWith(`${root}${path.sep}`) || !(await stat(resolved)).isFile()) throw new Error('The file must live inside ATELIER_WORK_DIR. Use media_import first.');
   return resolved;
 }
-// Résout indifféremment un identifiant média ou un chemin sous workDir.
+// Resolves either a media identifier or a path under workDir.
 export async function localFile(input: string): Promise<string> {
   if (idSchema.safeParse(input).success) {
     try { return await cheminValide((await readJson<MediaRecord>(recordPath('media', input))).path); }
@@ -53,9 +53,9 @@ export async function localFile(input: string): Promise<string> {
   }
   return cheminValide(input);
 }
-/** Destination nouvelle relative ; parents réels confinés, écrasement interdit.
- * Port du contrôle de generation. Ouverture exclusive requise par l'appelant.
- * Le dossier doit rester privé : pas de protection contre les courses TOCTOU.
+/** New relative destination ; resolved parent paths confined, overwriting forbidden.
+ * Port of the check from generation. Exclusive open required by the caller.
+ * The directory must remain private: no protection against TOCTOU races.
  */
 export async function newWorkFile(relative: string): Promise<string> {
   if (!relative || path.isAbsolute(relative) || relative.includes('\0')) throw new Error('A path relative to the work directory is expected.');
@@ -67,7 +67,7 @@ export async function newWorkFile(relative: string): Promise<string> {
   };
   const target = path.resolve(root, relative);
   within(target);
-  if (target === root) throw new Error('Un fichier, pas la racine, est attendu.');
+  if (target === root) throw new Error('A file, not the root, is expected.');
   const parts = path.relative(root, path.dirname(target)).split(path.sep).filter(Boolean);
   let parent = root;
   for (const part of parts) {
@@ -90,7 +90,7 @@ export function outputPath(extension: string): string { return path.join(workDir
 export async function run(binary: string, args: string[], signal?: AbortSignal): Promise<string> {
   if (signal?.aborted) throw new Error('Operation cancelled');
   return new Promise((resolve, reject) => {
-    // Empêche les protocoles réseau indirects de playlists importées; pas une sandbox.
+    // Blocks indirect network protocols from imported playlists; not a sandbox.
     const effective = binary === ffmpeg ? args.flatMap(arg => arg === '-i' ? ['-protocol_whitelist', 'file,pipe', arg] : [arg]) : binary === ffprobe && args.includes('-show_streams') ? ['-protocol_whitelist', 'file,pipe', ...args] : args;
     const child = spawn(binary, effective, { stdio: ['ignore', 'pipe', 'pipe'], cwd: workDir });
     let stdout = ''; let stderr = ''; let failure: Error | undefined;
@@ -101,7 +101,7 @@ export async function run(binary: string, args: string[], signal?: AbortSignal):
     child.stdout.on('data', (chunk: Buffer) => { if (!failure) { stdout += chunk.toString(); if (Buffer.byteLength(stdout) > 16 * 1024 * 1024) abort(new Error('Output too large')); } });
     child.stderr.on('data', (chunk: Buffer) => { stderr = (stderr + chunk.toString()).slice(-65536); });
     child.once('error', error => { failure = error; });
-    // Attendre close avant nettoyage des fichiers même après annulation.
+    // Wait for close before cleaning up files even after cancellation.
     child.once('close', code => {
       clearTimeout(timer); signal?.removeEventListener('abort', onAbort);
       if (failure) reject(failure); else if (code !== 0) reject(new Error(`${binary}: code ${code}\n${stderr}`)); else resolve(stdout);
@@ -110,13 +110,13 @@ export async function run(binary: string, args: string[], signal?: AbortSignal):
 }
 export interface Probe { format?: { duration?: string; format_name?: string }; streams: Array<{ codec_type?: string; codec_name?: string; width?: number; height?: number; duration?: string }> }
 export async function probe(file: string): Promise<Probe> { return JSON.parse(await run(ffprobe, ['-v', 'error', '-show_format', '-show_streams', '-of', 'json', file])) as Probe; }
-// Toute sortie est enregistrée comme un média de plein droit et rend son identifiant. Sans cela la
-// chaîne casse : `comp_add_clip` exige un identifiant, alors que découpe, concaténation et
-// sous-titres ne rendaient qu'un chemin — mesuré de bout en bout le 17/09/2026.
-// Enregistre un fichier déjà écrit comme média de plein droit. Tout outil qui produit un fichier
-// SANS passer par `encode` doit l'appeler : sinon il rend un chemin que `comp_add_clip`, qui exige
-// un identifiant, ne peut pas recevoir — c'est le défaut qu'une revue a trouvé sur le rendu, les
-// sous-titres et l'export des métadonnées, là où mon propre essai de bout en bout l'avait masqué.
+// Every output is registered as a full-fledged media item and returns its identifier. Otherwise the
+// chain breaks: `comp_add_clip` requires an identifier, whereas cutting, concatenation and
+// subtitles used to return only a path — measured end to end on 17/09/2026.
+// Registers an already-written file as a full-fledged media item. Any tool that produces a file
+// WITHOUT going through `encode` must call it: otherwise it returns a path that `comp_add_clip`, which requires
+// an identifier, cannot accept — this is the defect a review found in rendering,
+// subtitles and metadata export, where my own end-to-end test had masked it.
 export async function enregistrer(file: string, id: string = randomUUID()): Promise<{ id: string; path: string }> {
   const record: MediaRecord = { id, path: file, name: path.basename(file), created_at: new Date().toISOString() };
   await atomicJson(recordPath('media', id), record);
@@ -140,7 +140,7 @@ export function registerMedia(server: ToolServer): void {
     const file = path.join(workDir, 'media', `${id}${/^\.[a-z0-9]{1,8}$/.test(ext) ? ext : '.bin'}`);
     try {
       if (remote) {
-        // Agent de confiance: pas de filtrage SSRF des URL privées; ne pas exposer publiquement.
+        // Trusted agent: no SSRF filtering of private URLs; do not expose publicly.
         const response = await fetch(source, { signal: AbortSignal.timeout(300000) });
         if (!response.ok || !response.body) throw new Error(`Download failed: HTTP ${response.status}`);
         let bytes = 0;
@@ -160,8 +160,8 @@ export function registerMedia(server: ToolServer): void {
   tool(server, 'media_probe', 'Probe a media file with ffprobe.', { media_id: idSchema }, async ({ media_id }) => probe(await mediaPath(media_id)));
   tool(server, 'media_extract_frames', 'Extract frames at a fixed interval (300 max).', { media_id: idSchema, start: nonnegative.default(0), interval: positive.default(1), count: z.number().int().min(1).max(300).default(10), width: z.number().int().min(2).max(4096).default(640) }, async ({ media_id, start, interval, count, width }) => {
     const file = await mediaPath(media_id); const frames: Array<{ id: string; path: string }> = [];
-    // thumbnail() passe par encode(), donc chaque image EST déjà un média : on garde son identifiant
-    // au lieu de ne rendre que le chemin, sinon l'agent ne peut plus rien en faire.
+    // thumbnail() goes through encode(), so each image IS already a media item: keep its identifier
+    // rather than returning only the path, otherwise the agent can no longer do anything with it.
     for (let i = 0; i < count; i++) frames.push(await thumbnail(file, start + interval * i, width)); return { frames };
   });
   tool(server, 'media_thumbnail', 'Extract a single JPEG thumbnail.', { media_id: idSchema, at: nonnegative.default(0), width: z.number().int().min(2).max(4096).default(640) }, async ({ media_id, at, width }) => thumbnail(await mediaPath(media_id), at, width));

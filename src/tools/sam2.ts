@@ -15,14 +15,14 @@ const commands = {
 } as const;
 type ToolName = keyof typeof commands;
 const common = {
-  input: { type: "string", description: "Fichier relatif à ATELIER_WORK_DIR." },
-  output: { type: "string", description: "Destination NOUVELLE relative ; dossier pour masques, .mp4 pour vidéo, .png pour image." },
-  points: { type: "array", items: { type: "array", items: { type: "number" }, minItems: 2, maxItems: 2 }, minItems: 1, maxItems: 256, description: "Points [x,y] sur la première image, en pixels." },
-  labels: { type: "array", items: { type: "integer", enum: [0, 1] }, description: "0 fond, 1 objet ; défaut 1 pour chaque point." },
-  mask: { type: "string", description: "Masque initial PNG ; propagation approximative par points échantillonnés, pas conditionnement exact du masque." },
+  input: { type: "string", description: "File relative to ATELIER_WORK_DIR." },
+  output: { type: "string", description: "NEW relative destination ; directory for masks, .mp4 for video, .png for image." },
+  points: { type: "array", items: { type: "array", items: { type: "number" }, minItems: 2, maxItems: 2 }, minItems: 1, maxItems: 256, description: "Points [x,y] on the first frame, in pixels." },
+  labels: { type: "array", items: { type: "integer", enum: [0, 1] }, description: "0 background, 1 object ; default 1 for each point." },
+  mask: { type: "string", description: "Initial PNG mask ; approximate propagation using sampled points, not exact mask conditioning." },
   erosion: { type: "integer", minimum: 0, maximum: 31, default: 2 },
   blur: { type: "integer", minimum: 1, maximum: 99, default: 9, description: "Noyau gaussien impair." },
-  replacement: { type: "string", description: "Image ou vidéo relative ; une image de remplacement par image source, dernière image répétée si nécessaire." },
+  replacement: { type: "string", description: "Relative image or video ; one replacement frame per source frame, last frame repeated if necessary." },
 };
 function descriptor(name: ToolName, description: string, keys: (keyof typeof common)[], required: string[]) {
   return { name, description, inputSchema: {
@@ -37,15 +37,15 @@ export const sam2Tools = [
   descriptor("sam2_propagate_mask", "SAM2: approximate propagation, from inside/outside points sampled in the initial mask.", ["input", "output", "mask", "erosion", "blur"], ["input", "output", "mask"]),
   descriptor("sam2_refine_mask", "Refine a PNG mask by erosion and Gaussian blur. Needs only OpenCV and NumPy.", ["input", "output", "erosion", "blur"], ["input", "output"]),
   descriptor("sam2_screen_replace", "SAM2: screen replacement, by mask plus a homography onto the oriented rectangle. Output is muted; perspective is approximate.", ["input", "output", "points", "labels", "replacement", "erosion", "blur"], ["input", "output", "points", "replacement"]),
-  descriptor("sam2_video_inpaint", "SAM2 + OpenCV Telea: spatial erasure. No generative model, and no guaranteed temporal consistency. Vidéo muette.", ["input", "output", "points", "labels", "erosion", "blur"], ["input", "output", "points"]),
+  descriptor("sam2_video_inpaint", "SAM2 + OpenCV Telea: spatial erasure. No generative model, and no guaranteed temporal consistency. Silent video.", ["input", "output", "points", "labels", "erosion", "blur"], ["input", "output", "points"]),
 ];
-const installHelp = "SAM2 indisponible : utilisez le profil Docker sam2 (docker compose --profile sam2 up). Ce profil doit fournir Python, les dépendances et la distribution SAM2 patchée compatible ; elle n'est pas incluse dans l'image de base.";
+const installHelp = "SAM2 unavailable : use the sam2 Docker profile (docker compose --profile sam2 up). This profile must provide Python, the dependencies and the compatible patched SAM2 distribution ; it is not included in the base image.";
 
-/** Descripteurs pour listTools et adaptateur pour callTool, pas un serveur autonome.
- * Le script est à la racine python/, tant depuis src/tools que dist/tools.
- * ATELIER_SAM2_RUNNER et ATELIER_PYTHON sont des réglages administrateur.
- * Aucun shell et aucun stderr Python exposé dans la réponse MCP.
- * Sans torch ni modèle, l'erreur rendue renvoie au profil Docker `sam2`.
+/** Descriptors for listTools and an adapter for callTool, not a standalone server.
+ * The script is at the root of python/, whether accessed from src/tools or dist/tools.
+ * ATELIER_SAM2_RUNNER and ATELIER_PYTHON are administrator settings.
+ * No shell and no Python stderr exposed in the MCP response.
+ * Without torch or a model, the returned error points to the `sam2` Docker profile.
  */
 async function run(command: string, args: unknown): Promise<unknown> {
   await initWork();
@@ -64,18 +64,18 @@ async function run(command: string, args: unknown): Promise<unknown> {
     let bytes = 0;
     let failure: Error | undefined;
     const timer = setTimeout(() => {
-      failure = new Error("SAM2 : délai de traitement dépassé (30 minutes).");
+      failure = new Error("SAM2 : processing timed out (30 minutes).");
       child.kill("SIGKILL");
     }, 30 * 60 * 1000);
     child.stdout.on("data", (data: Buffer) => {
       bytes += data.length;
       if (bytes > 2 * 1024 * 1024) {
-        failure = new Error("SAM2 : réponse JSON trop volumineuse."); child.kill("SIGKILL");
+        failure = new Error("SAM2 : JSON response too large."); child.kill("SIGKILL");
       } else chunks.push(data);
     });
     child.stderr.resume();
     child.on("error", () => { clearTimeout(timer); reject(new Error(installHelp)); });
-    child.stdin.on("error", () => { /* close/error traite un arrêt avant lecture de stdin. */ });
+    child.stdin.on("error", () => { /* close/error handles an exit before reading stdin. */ });
     child.on("close", code => {
       clearTimeout(timer);
       if (failure) { reject(failure); return; }
@@ -83,7 +83,7 @@ async function run(command: string, args: unknown): Promise<unknown> {
         const result = JSON.parse(Buffer.concat(chunks).toString("utf8")) as { ok?: boolean; error?: { code?: string; message?: string }; result?: unknown };
         if (result.error?.code === "SAM2_UNAVAILABLE") { reject(new Error(installHelp)); return; }
         if (code !== 0 || result.ok !== true) {
-          reject(new Error(result.error?.message || "SAM2 : traitement impossible, réponse non valide.")); return;
+          reject(new Error(result.error?.message || "SAM2 : unable to process, invalid response.")); return;
         }
         resolve(result.result);
       } catch { reject(new Error(code === 0 ? "SAM2 : sortie JSON invalide." : installHelp)); }
@@ -99,14 +99,14 @@ export async function callSam2Tool(name: string, args: unknown) {
     const result = await run(commands[name as ToolName], args);
     return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
   } catch (error) {
-    return { isError: true, content: [{ type: "text" as const, text: error instanceof Error ? error.message : "SAM2 : échec." }] };
+    return { isError: true, content: [{ type: "text" as const, text: error instanceof Error ? error.message : "SAM2 : failure." }] };
   }
 }
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
-/** Enregistrement MCP explicite ; aucune dépendance Python importée au démarrage. */
+/** Explicit MCP registration ; no Python dependencies imported at startup. */
 export function registerSam2(server: McpServer): void {
   const commonShape = {
     input: z.string().min(1), output: z.string().min(1),

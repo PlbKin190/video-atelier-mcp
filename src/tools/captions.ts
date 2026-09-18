@@ -24,7 +24,7 @@ export function registerCaptions(server: ToolServer): void {
   tool(server, 'captions_burn', 'Burn SRT/ASS subtitles into the picture. Needs an ffmpeg built with libass, plus fonts (both ship in the Docker image).', { input: z.string(), subtitles: z.string() }, async ({ input, subtitles }) => {
     const source = await localFile(subtitles); const extension = path.extname(source).toLowerCase();
     if (!['.srt', '.ass'].includes(extension)) throw new Error('Sous-titres .srt ou .ass requis');
-    // Copie vers un nom contrôlé, puis échappement des caractères propres au filtre FFmpeg.
+    // Copy to a controlled filename, then escape characters specific to the FFmpeg filter.
     const temporary = await mkdtemp(path.join(workDir, 'tmp', 'captions-'));
     try {
       const staged = path.join(temporary, `captions${extension}`); await copyFile(source, staged);
@@ -34,10 +34,10 @@ export function registerCaptions(server: ToolServer): void {
   });
   tool(server, 'captions_transcribe', 'Transcribe locally with the Whisper CLI, if installed. No key; the model is downloaded on first use. Not in the base image.', { input: z.string(), language: z.string().regex(/^[a-z]{2,3}$/).optional(), model: z.enum(['tiny', 'base', 'small', 'medium', 'large']).default('base') }, async ({ input, language, model }) => {
     const binary = process.env.WHISPER_PATH || 'whisper';
-    // Adaptateur CLI optionnel; version Whisper non identifiée dans le carnet source.
-    // L’image de base n’installe pas torch. Contrat CLI à vérifier avec la distribution choisie.
+    // Optional CLI adapter; Whisper version not identified in the source notebook.
+    // The base image does not install torch. Check the CLI contract against the chosen distribution.
     try { await run(binary, ['--help']); }
-    catch { throw new Error('Whisper indisponible. Installer Python et openai-whisper (pip install openai-whisper), ainsi que ffmpeg, ou définir WHISPER_PATH vers sa CLI. Pour rester sans torch, utiliser captions_write_srt puis captions_burn.'); }
+    catch { throw new Error('Whisper unavailable. Install Python and openai-whisper (pip install openai-whisper), as well as ffmpeg, or set WHISPER_PATH to its CLI. To avoid torch, use captions_write_srt then captions_burn.'); }
     const temporary = await mkdtemp(path.join(workDir, 'tmp', 'whisper-'));
     try {
       const source = path.join(temporary, 'input.wav');

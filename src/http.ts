@@ -8,9 +8,9 @@ import { atomicJson, idSchema, initWork, mediaPath, readJson, workDir } from './
 import { compositionSchema, loadComp, mutateComp, type Composition } from './tools/timeline.js';
 import { versEditeur, depuisEditeur } from './comp-forme.js';
 
-// Même chemin depuis src/http.ts et dist/http.js. Aucun cwd implicite.
+// Same path from src/http.ts and dist/http.js. No implicit cwd.
 const webRoot = fileURLToPath(new URL('../web-dist/', import.meta.url));
-const buildHelp = 'Interface absente : construire l’interface dans web-dist/, ou utiliser l’image Docker qui la contient. Le serveur reste accessible uniquement sur 127.0.0.1 (dans le conteneur également).';
+const buildHelp = 'UI missing : build the UI in web-dist/, or use the Docker image that contains it. The server remains accessible only on 127.0.0.1 (also inside the container).';
 const mime: Record<string, string> = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -44,7 +44,7 @@ async function body(req: IncomingMessage): Promise<unknown> {
   if (req.headers['content-encoding'] && req.headers['content-encoding'] !== 'identity') throw new HttpError(415, 'Compressed request bodies are not supported.');
   const limit = 2 * 1024 * 1024;
   if (Number(req.headers['content-length']) > limit) throw new HttpError(413, 'Request body is capped at 2 MiB.');
-  // Écouteurs plutôt qu’un iterator détruisant la socket avant la réponse 413.
+  // Listeners rather than an iterator that destroys the socket before the 413 response.
   return new Promise((resolve, reject) => {
     let size = 0; let failed = false; const chunks: Buffer[] = [];
     req.on('data', (chunk: Buffer) => {
@@ -74,9 +74,9 @@ async function archive(comp: Composition, label: string, history?: Version[]): P
   all.push({ ts: new Date().toISOString(), label, comp: structuredClone(comp) });
   await atomicJson(historyFile(comp.id), all);
 }
-// L'aperçu de l'éditeur montre UNE vidéo. Le montage, lui, peut avoir plusieurs clips : on prend le
-// dernier rendu terminé s'il existe, sinon le premier clip. Sans rendu, l'aperçu montre donc le
-// premier plan seul — c'est une limite connue, pas un défaut du convertisseur.
+// The editor preview shows ONE video. The edit can have multiple clips: we use the
+// latest completed render if available, otherwise the first clip. Without a render, the preview thus shows the
+// first shot only — this is a known limitation, not a converter defect.
 async function apercu(comp: Composition): Promise<string> {
   try {
     const jobs = await readdir(path.join(workDir, 'renders'));
@@ -85,7 +85,7 @@ async function apercu(comp: Composition): Promise<string> {
       try {
         const job = await readJson<{ id: string; comp_id: string; state: string; output?: string; updated_at: string }>(path.join(workDir, 'renders', f));
         if (job.comp_id === comp.id && job.state === 'completed' && job.output) termines.push({ id: job.id, updated_at: job.updated_at });
-      } catch { /* un job illisible n'empêche pas d'en lire d'autres */ }
+      } catch { /* an unreadable job does not prevent reading others */ }
     }
     termines.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
     if (termines[0]) return `/media/${termines[0].id}`;
@@ -124,7 +124,7 @@ async function sendFile(req: IncomingMessage, res: ServerResponse, file: string,
     if (!info.isFile()) throw new HttpError(404, 'Ressource introuvable.');
     const size = info.size;
     let start = 0; let end = size - 1; let partial = false;
-    // If-Range non validé : réponse intégrale, conformément à HTTP.
+    // If-Range not validated : full response, as required by HTTP.
     if (ranged && req.method === 'GET' && req.headers.range && !req.headers['if-range']) {
       const match = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range);
       let valid = !!match && !!(match[1] || match[2]) && size > 0;
@@ -168,7 +168,7 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (pathname.includes('\0') || pathname.includes('\\')) throw new HttpError(400, 'Invalid URL.');
   const method = req.method;
   if ((pathname === '/api/sam2/screen-replace' && method === 'POST') || (pathname === '/api/sam2/progress' && method === 'GET')) {
-    json(res, 501, { error: 'Cette passerelle HTTP ne fournit pas SAM2. Activer le profil sam2 et utiliser les outils MCP SAM2 ; aucun remplacement ni suivi simulé.' }); return;
+    json(res, 501, { error: 'This HTTP gateway does not provide SAM2. Enable the sam2 profile and use the SAM2 MCP tools ; no fallback or simulated tracking.' }); return;
   }
   if (pathname === '/api/comps' && method === 'GET') {
     const names = await readdir(path.join(workDir, 'compositions'));
@@ -188,7 +188,7 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
       const parsed = z.object({ output_assets: z.record(z.unknown()) }).strict().safeParse(await body(req));
       if (!parsed.success) throw new HttpError(400, 'Expected body: { output_assets: object }.');
       const comp = await mutateComp(id, async current => {
-        // Le convertisseur ne reçoit pas l’original à archiver et doit refuser les données non représentables.
+        // The converter does not receive the original to archive and must reject data it cannot represent.
         let converted: Composition;
         try {
           converted = compositionSchema.parse(await depuisEditeur(parsed.data.output_assets as unknown as Parameters<typeof depuisEditeur>[0], structuredClone(current)));
@@ -196,7 +196,7 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
         converted.id = current.id; converted.created_at = current.created_at;
         await archive(current, 'before-patch');
         Object.assign(current, converted);
-      }); // mutateComp appelle saveComp sous le verrou partagé MCP/HTTP.
+      }); // mutateComp calls saveComp under the shared MCP/HTTP lock.
       json(res, 200, await editorResult(comp)); return;
     }
     if (compRoute[2] && method === 'GET') {

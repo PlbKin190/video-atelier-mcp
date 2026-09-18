@@ -11,7 +11,7 @@
    *   duration_s: number,
    *   overlays: [{ id, type:'text'|'image', text?, image_url?, x_pct, y_pct, w_pct, h_pct, start_t, end_t, color?, font_size_px? }]
    * }
-   * On drag end -> PATCH /api/comps/{stepTraceId} avec output_assets.overlays[i] mis à jour.
+   * On drag end -> PATCH /api/comps/{stepTraceId} with output_assets.overlays[i] updated.
    */
   interface TextLine {
     text: string;
@@ -21,7 +21,7 @@
     font_family?: string;       // override de la typographie pour cette ligne
   }
 
-  // SAM2 = OPTION par overlay (peu importe le type), pas un track separe.
+  // SAM2 = OPTION per overlay (regardless of type), not a separate track.
   interface OverlaySam2 {
     enabled: boolean;
     mode?: 'yolo' | 'point' | 'text';   // null/undef => yolo auto
@@ -120,9 +120,9 @@
 
   const aspectRatio = $derived(comp.aspect_ratio ?? '9:16');
   const AR_CSS: Record<string, string> = { '9:16': '9 / 16', '16:9': '16 / 9', '4:5': '4 / 5', '1:1': '1 / 1' };
-  // Largeur du canvas de rendu (px) : 16:9 = 1920, les formats verticaux/carre = 1080.
-  // font_size_px est exprime dans ces coords -> on scale a la taille reelle de la preview
-  // (frameW) pour que les overlays aient la meme taille relative qu au rendu final.
+  // Render canvas width (px): 16:9 = 1920, portrait/square formats = 1080.
+  // font_size_px is expressed in these coords -> scale to the actual preview size
+  // (frameW) so overlays have the same relative size as in the final render.
   const CANVAS_W = $derived(aspectRatio === '16:9' ? 1920 : 1080);
   let frameW = $state(0);
 
@@ -132,23 +132,23 @@
   let currentTime = $state(0);
   let videoEl: HTMLVideoElement | null = $state(null);
   let videoMeta = $state<{ w: number; h: number } | null>(null);
-  // Sprite-image unique de toutes les frames echantillonnees (timeline-aligned, scale au zoom).
+  // Single sprite image of all sampled frames (timeline-aligned, scaled to zoom).
   let masterFilmstrip = $state<string | null>(null);
   // Filmstrips (sprite per overlay video : ov.id -> data URL)
   let overlayFilmstrips = $state<Record<string, string>>({});
-  // Refs sur les <video> overlays pour sync currentTime (pas autoplay/loop)
+  // Refs to <video> overlays for currentTime sync (no autoplay/loop)
   let overlayVideoEls = $state<Record<string, HTMLVideoElement | undefined>>({});
 
-  // Sync chaque overlay video au currentTime de la composition (pas de loop independant)
+  // Sync each video overlay to the composition's currentTime (no independent loop)
   $effect(() => {
     const t = currentTime;
     for (const ov of overlays) {
       if (ov.type !== 'video') continue;
       const vEl = overlayVideoEls[ov.id];
       if (!vEl) continue;
-      // Position dans la timeline relative au start_t de l overlay
+      // Timeline position relative to the overlay's start_t
       const localT = Math.max(0, Math.min(vEl.duration || ov.end_t - ov.start_t, t - ov.start_t));
-      // Seek si differe de plus de 50ms (evite spam)
+      // Seek if the difference exceeds 50ms (avoids spam)
       if (Math.abs(vEl.currentTime - localT) > 0.05) {
         try { vEl.currentTime = localT; } catch { /* ignore seek errors */ }
       }
@@ -161,14 +161,14 @@
     if (videoEl) {
       videoMeta = { w: videoEl.videoWidth, h: videoEl.videoHeight };
     }
-    // NB : le filmstrip n'est PLUS regenere ici (sinon il repart a chaque switch de rush
-    // pendant le scrub et ne se stabilise jamais). Il est genere depuis la liste des rushes
-    // via un $effect dedie (multi-rush, une fois par jeu de rushes).
+    // NB: the filmstrip is NO LONGER regenerated here (otherwise it restarts on each source clip switch
+    // while scrubbing and never stabilizes). It is generated from the source clip list
+    // via a dedicated $effect (multiple source clips, once per set of source clips).
   }
 
-  // Filmstrip MULTI-RUSH : echantillonne CHAQUE rush sur son segment [src_in,src_out] et
-  // compose une sprite horizontale continue alignee sur la timeline (nb de frames par rush
-  // proportionnel a sa duree). Stretchee 100% sur la piste. Genere une seule fois par jeu
+  // MULTI-CLIP filmstrip: samples EACH source clip over its [src_in,src_out] segment and
+  // composes a continuous horizontal sprite aligned to the timeline (frame count per source clip
+  // proportional to its duration). Stretched 100% across the track. Generated only once per set
   // de rushes (via $effect ci-dessous), pas a chaque switch video.
   let filmstripBusy = false;
   async function generateMasterFilmstrip() {
@@ -208,7 +208,7 @@
     }
   }
 
-  // Regenere le filmstrip UNE fois par jeu de rushes (signature url+timing), pas au scrub.
+  // Regenerate the filmstrip ONCE per set of source clips (url+timing signature), not while scrubbing.
   let lastFilmstripKey = '';
   $effect(() => {
     const key = (rushes || []).map((r) => `${r.video_url}@${r.start_t}-${r.end_t}`).join('|');
@@ -218,7 +218,7 @@
     }
   });
 
-  // Genere un filmstrip frame-by-frame pour un overlay video (sprite N frames).
+  // Generate a frame-by-frame filmstrip for a video overlay (N-frame sprite).
   async function generateOverlayFilmstrip(ovId: string, src: string, n = 24) {
     if (overlayFilmstrips[ovId]) return;                   // deja genere
     const probe = document.createElement('video');
@@ -265,13 +265,13 @@
 
   function ensureOverride() {
     if (overrideOverlays === null) {
-      // JSON-clone evite structuredClone qui peut throw sur les proxy Svelte
+      // JSON-clone avoids structuredClone, which can throw on Svelte proxies
       const src = comp?.overlays ?? [];
       overrideOverlays = JSON.parse(JSON.stringify(src));
     }
   }
 
-  // Auto-select premier overlay UNE SEULE FOIS au mount (sinon le deselect est annule).
+  // Auto-select the first overlay ONLY ONCE on mount (otherwise deselection is undone).
   let initialAutoSelectDone = $state(false);
   $effect(() => {
     if (!initialAutoSelectDone && overlays.length > 0) {
@@ -298,20 +298,20 @@
   }
 
   function onTimeUpdate() {
-    // En scrub / pause, c'est seekTo qui possede currentTime. onTimeUpdate ne pilote la
-    // timeline QU'EN LECTURE, sinon les seeks de chargement (videoEl.currentTime=0 quand un
-    // rush change) ecrasent la position de scrub -> "toujours le meme rush".
+    // While scrubbing / paused, seekTo owns currentTime. onTimeUpdate drives the
+    // timeline ONLY DURING PLAYBACK, otherwise load-time seeks (videoEl.currentTime=0 when a
+    // source clip changes) overwrite the scrub position -> "always the same source clip".
     if (!videoEl || !playing) return;
-    // Montage playback : le <video> ne contient qu'UN rush a la fois. videoEl.currentTime
-    // est le temps LOCAL dans le fichier rush ; le temps GLOBAL timeline =
-    // activeRush.start_t + (local - src_in). Sans ca, le playhead retombe dans la fenetre
+    // Edit playback: <video> contains only ONE source clip at a time. videoEl.currentTime
+    // is the LOCAL time in the source clip file; GLOBAL timeline time =
+    // activeRush.start_t + (local - src_in). Without this, the playhead falls back into the window
     // du 1er rush -> "toujours le meme rush" (bug multi-rush).
     if (!activeRush) { currentTime = videoEl.currentTime; return; }
     const srcIn = activeRush.src_in ?? 0;
     const allocated = activeRush.end_t - activeRush.start_t;
     const srcOut = activeRush.src_out ?? (srcIn + allocated);
-    // Fin de la fenetre source de ce rush -> avance au rush suivant (UNIQUEMENT en lecture ;
-    // en scrub/pause on ne saute pas, on mappe juste le temps global).
+    // End of this clip's source window -> advance to the next source clip (ONLY during playback;
+    // while scrubbing/paused, do not skip ahead, just map global time).
     if (playing && videoEl.currentTime >= srcOut - 0.03) {
       const idx = rushes.indexOf(activeRush);
       const next = rushes[idx + 1];
@@ -415,7 +415,7 @@
   }
 
   async function save() {
-    // Cherche step_trace_id dans metadata OU dans le ?step_trace_id query param (lecture URL)
+    // Look for step_trace_id in metadata OR in the ?step_trace_id query param (read from URL)
     let stepTraceId = (metadata?.step_trace_id ?? metadata?.stepTraceId) as number | undefined;
     if (!stepTraceId && typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -543,7 +543,7 @@
     dirty = true;
   }
 
-  // Mesure le bloc texte rendu et ajuste w_pct/h_pct pour epouser le contenu
+  // Measure the rendered text block and adjust w_pct/h_pct to fit the content
   function fitContent(ov: Overlay) {
     ensureOverride();
     if (!frameEl || !overrideOverlays) return;
@@ -594,7 +594,7 @@
     pickAssetAndAddOverlay('video');
   }
 
-  // Ouvre le file picker natif et cree un Overlay (image ou video) avec data URL.
+  // Open the native file picker and create an Overlay (image or video) with a data URL.
   function pickAssetAndAddOverlay(kind: 'image' | 'video') {
     const input = document.createElement('input');
     input.type = 'file';
@@ -612,7 +612,7 @@
         ensureOverride();
         const id = `${kind}_${Date.now()}`;
         if (!overrideOverlays) overrideOverlays = [];
-        // Unshift = derriere (z-order back) sur le frame, et en HAUT de la stack timeline
+        // Unshift = behind (z-order back) on the frame, and at the TOP of the timeline stack
         overrideOverlays.unshift({
           id,
           type: kind,
@@ -725,9 +725,9 @@
     e.preventDefault();
     e.stopPropagation();
     ensureOverride();
-    // Toggle si on clique sur un clip deja selectionne (en mode move only, pour permettre resize sans deselect)
+    // Toggle when clicking an already-selected clip (in move mode only, to allow resize without deselect)
     if (mode === 'move' && selectedId === ov.id) {
-      // Marquer pour potentielle deselection au pointerup (si pas de drag detecte)
+      // Mark for possible deselection on pointerup (if no drag is detected)
       clipDrag = { id: ov.id, startX: e.clientX, startStart: ov.start_t, startEnd: ov.end_t, mode, mayToggle: true };
     } else {
       selectedId = ov.id;
@@ -741,11 +741,11 @@
     if (!clipDrag || !timelineEl || !overrideOverlays) return;
     const rect = timelineEl.getBoundingClientRect();
     const dt = ((e.clientX - clipDrag.startX) / rect.width) * totalDur;
-    // Si on a bouge de + de 3px, on annule la possible toggle
+    // If movement exceeds 3px, cancel the pending toggle
     if (Math.abs(e.clientX - clipDrag.startX) > 3) {
       clipDrag.moved = true;
       clipDrag.mayToggle = false;
-      // Si c'etait un clic toggle, s'assurer que l'item est selectionne pour le drag
+      // If this was a toggle click, ensure the item is selected for dragging
       if (selectedId !== clipDrag.id) selectedId = clipDrag.id;
     }
     const idx = overrideOverlays.findIndex((o) => o.id === clipDrag!.id);
@@ -810,14 +810,14 @@
 
   function endSam2Drag() {
     window.removeEventListener('pointermove', onSam2Drag);
-    // Click sans drag = selectionne la region pour afficher ses proprietes dans le panel
+    // Click without dragging = select the region to display its properties in the panel
     if (sam2Drag && !sam2Drag.moved) {
       selectSam2(sam2Drag.id);
     }
     sam2Drag = null;
   }
 
-  // Scrub : pointerdown + drag + pointerup. Met a jour le master ET tous les overlays sync via $effect.
+  // Scrub: pointerdown + drag + pointerup. Update the master AND all synced overlays via $effect.
   let scrubbing = $state(false);
   function seekTo(e: PointerEvent) {
     if (!timelineEl || !videoEl) return;
@@ -828,9 +828,9 @@
       const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
       const t = pctToSec(pct);
       currentTime = t;
-      // videoEl ne contient qu'UN rush -> seek en temps LOCAL du rush actif a t
-      // (et non le temps global, qui depasserait la duree du fichier). Le switch de rush
-      // (src) est gere par le $effect masterSrc ; ici on cale juste la frame locale.
+      // videoEl contains only ONE source clip -> seek in the LOCAL time of the source clip active at t
+      // (not global time, which would exceed the file's duration). Source clip switching
+      // (src) is handled by the masterSrc $effect; here we only set the local frame.
       const r = rushes.find((rr) => t >= rr.start_t && t <= rr.end_t);
       if (videoEl) {
         const local = r ? (r.src_in ?? 0) + (t - r.start_t) : t;
@@ -948,27 +948,27 @@
   // Active rush at currentTime (concatenation : le rush dont [start_t, end_t] contient currentTime)
   const activeRush = $derived<Rush | null>(rushes.find((r) => currentTime >= r.start_t && currentTime <= r.end_t) ?? null);
 
-  // Source du master video sur le frame :
-  //  - Si rushes ont un video_url => utilise le rush actif (auto-switch au seek)
+  // Source of the master video on the frame:
+  //  - If source clips have a video_url => use the active source clip (auto-switch on seek)
   //  - Sinon fallback sur comp.video_url legacy (single file)
   const masterSrc = $derived<string>(
     activeRush?.video_url ?? rushes.find((r) => r.video_url)?.video_url ?? comp?.video_url ?? ''
   );
 
-  // Sync : quand le rush actif change, seek le video element au temps local de ce rush
+  // Sync: when the active source clip changes, seek the video element to that clip's local time
   let lastMasterSrc = '';
   let playing = $state(false);
   $effect(() => {
     if (!videoEl || !activeRush) return;
     const srcIn = activeRush.src_in ?? 0;
     const localT = srcIn + (currentTime - activeRush.start_t);
-    // Si on a switche de rush (src change), attendre loadedmetadata pour seek
+    // If the source clip has switched (src changed), wait for loadedmetadata before seeking
     if (videoEl.src && lastMasterSrc !== masterSrc) {
       lastMasterSrc = masterSrc;
       const wasPlaying = playing;
       const onMeta = () => {
         try { videoEl!.currentTime = Math.max(0, Math.min(videoEl!.duration ?? localT, localT)); } catch { /* */ }
-        // Lecture continue du montage : on reprend le play sur le rush suivant
+        // Continuous edit playback: resume playback on the next source clip
         if (wasPlaying) { videoEl!.play().catch(() => { /* */ }); }
         videoEl!.removeEventListener('loadedmetadata', onMeta);
       };
@@ -1072,7 +1072,7 @@
     ensureRushesOverride();
     if (!rushesOverride) return;
     const r = rushesOverride[idx];
-    // En mode trim, on garde la src_in/src_out de depart pour le delta
+    // In trim mode, keep the initial src_in/src_out for the delta
     rushDrag = { idx, startX: e.clientX, startStart: r.src_in ?? 0, startEnd: r.src_out ?? (r.duration_s ?? r.end_t - r.start_t), mode };
     window.addEventListener('pointermove', onRushDrag);
     window.addEventListener('pointerup', endRushDrag, { once: true });
@@ -1109,11 +1109,11 @@
     const curSrcIn = r.src_in ?? 0;
     const curSrcOut = r.src_out ?? srcDur;
     if (rushDrag.mode === 'resize-l') {
-      // resize-l : delta sur src_in (par rapport au start du drag)
+      // resize-l: delta on src_in (relative to the start of the drag)
       const newSrcIn = Math.max(0, Math.min(curSrcOut - 0.2, rushDrag.startStart + dt));
       r.src_in = newSrcIn;
     } else {
-      // resize-r : delta sur src_out (par rapport au start du drag)
+      // resize-r: delta on src_out (relative to the start of the drag)
       const newSrcOut = Math.max((r.src_in ?? 0) + 0.2, Math.min(srcDur, rushDrag.startEnd + dt));
       r.src_out = newSrcOut;
     }
@@ -1159,12 +1159,12 @@
         result.push(max);
       }
       await ctx.close();
-      // Normalisation pour l'AFFICHAGE : on cale le pic a 1.0 pour que la waveform reste
-      // visible quel que soit le niveau absolu (une bande son lo-fi a -20dB sinon = barres
-      // de ~6px, invisibles). On ne touche pas a l'audio, juste a la visu.
+      // Normalization for DISPLAY: set the peak to 1.0 so the waveform stays
+      // visible regardless of the absolute level (a lo-fi soundtrack at -20dB otherwise = bars
+      // of ~6px, invisible). Audio is untouched, only the visualization changes.
       const peak = result.reduce((m, v) => (v > m ? v : m), 0);
       if (peak > 0 && peak < 0.95) {
-        const g = Math.min(1 / peak, 12); // cap le gain pour ne pas exploser le bruit de fond
+        const g = Math.min(1 / peak, 12); // cap the gain to avoid amplifying background noise excessively
         for (let i = 0; i < result.length; i++) result[i] = Math.min(1, result[i] * g);
       }
       return result;
@@ -1216,7 +1216,7 @@
   // - regions[] visualisees sur la timeline (track ⌖ SAM2)
   // ============================================================
   // Video layer = incrustation video/image dans la video principale.
-  // - Par defaut : overlay simple (positionne x/y/w/h sur le frame), pas de pipeline.
+  // - Default: simple overlay (positioned with x/y/w/h on the frame), no pipeline.
   // - Option : sam2_enabled = true -> tracking SAM2 + remplace l ecran trackeable.
   // - Filters : feather_px (mask softness), opacity, blend.
   interface Sam2Region {
@@ -1255,7 +1255,7 @@
     error?: string;
   }
 
-  // sam2Regions[] est un legacy data shape (avant unification). On le migre en overlays au mount.
+  // sam2Regions[] is a legacy data shape (before unification). Migrate it to overlays on mount.
   let sam2Regions = $state<Sam2Region[]>([]);                    // gardee transitoire (rendu desactive)
   let sam2RegionsInitFromComp = false;
 
@@ -1265,7 +1265,7 @@
     if (!comp) return;
     sam2RegionsInitFromComp = true;
 
-    // Auto-create 1 rush par defaut depuis comp.video_url si pas de rushes definis (legacy single video)
+    // Auto-create 1 default source clip from comp.video_url if no source clips are defined (legacy single video)
     const existingRushes = comp.rushes ?? [];
     const hasRealRushes = existingRushes.some((r) => !!r.video_url);
     if (!hasRealRushes && comp.video_url) {
@@ -1335,7 +1335,7 @@
         } : undefined,
       });
     }
-    // On vide la liste legacy pour eviter le double rendu
+    // Clear the legacy list to avoid double rendering
     sam2Regions = [];
     dirty = true;
   });
@@ -1349,8 +1349,8 @@
     if (id) selectedId = null;                            // mutual exclusion overlay vs sam2
   }
 
-  // Auto-trigger SAM2 pipeline : des qu une region a sam2_enabled + asset + change de seed,
-  // declenche un run debounce 800ms. Pas de bouton "Run" manuel.
+  // Auto-trigger SAM2 pipeline: as soon as a region has sam2_enabled + asset + a seed change,
+  // trigger a run with an 800ms debounce. No manual "Run" button.
   const autoTriggerTimers = new Map<string, ReturnType<typeof setTimeout>>();
   function scheduleAutoRun(r: Sam2Region) {
     if (!r.sam2_enabled || !assetSrc(r) || !comp?.video_url) return;
@@ -1365,7 +1365,7 @@
   }
 
   // Watch overlay.sam2 changes -> auto-schedule pipeline.
-  // (Modele unifie : SAM2 = option sur Overlay, plus sur Sam2Region.)
+  // (Unified model: SAM2 = option on Overlay, no longer on Sam2Region.)
   const lastSignature = new Map<string, string>();
   $effect(() => {
     for (const ov of overlays) {
@@ -1377,7 +1377,7 @@
       if (prev === sig) continue;
       lastSignature.set(ov.id, sig);
       const isInitialMount = prev === undefined;
-      // Ne pas re-run au mount si deja done/error (use cached output_url)
+      // Do not re-run on mount if already done/error (use cached output_url)
       if (isInitialMount && (ov.sam2.status === 'done' || ov.sam2.status === 'error')) continue;
       // Stale 'running' au mount (process tue entre sessions) -> reset a idle pour permettre re-run
       if (isInitialMount && ov.sam2.status === 'running') {
@@ -1422,7 +1422,7 @@
     overrideOverlays[idx] = { ...ov };
     sam2RunningId = ovId;
 
-    // Persiste 'running' en DB immediatement pour eviter re-declenchement sur reload
+    // Persist 'running' in DB immediately to avoid re-triggering on reload
     const _stid = (metadata?.step_trace_id ?? metadata?.stepTraceId ?? metadata?.id) as number | undefined;
     if (_stid) {
       fetch(`/api/comps/${_stid}`, {
@@ -1467,7 +1467,7 @@
             if (o.sam2) {
               o.sam2 = { ...o.sam2, status: 'done', output_url: outputUrl };
               overrideOverlays[i] = { ...o };
-              // Persiste 'done' + output_url en DB pour survivre aux reloads
+              // Persist 'done' + output_url in DB to survive reloads
               if (_stid) {
                 fetch(`/api/comps/${_stid}`, {
                   method: 'PATCH',
@@ -1711,7 +1711,7 @@
   function legacyToRichText(ov: Overlay): RichText {
     // Si rich_text deja present : retour direct.
     if (ov.rich_text && ov.rich_text.spans?.length) return ov.rich_text;
-    // Si text_lines : un span par ligne avec leur styles, jointed par \n
+    // If text_lines: one span per line with its styles, joined by \n
     if (ov.text_lines && ov.text_lines.length > 0) {
       const spans = ov.text_lines.flatMap((line, i) => {
         const span = {
@@ -1736,10 +1736,10 @@
     });
   }
 
-  // Calcule le RichText a afficher pour un overlay, en tenant compte de typing_animation.
+  // Compute the RichText to display for an overlay, taking typing_animation into account.
   // Vitesse = char_count / (end_t - start_t) — auto, pas d arg manuel.
-  // toHtml emet des font-size:Npx INLINE par span (px canvas 1080). Dans la preview
-  // (frameW px), il faut les scaler comme le reste -> sinon le texte deborde sa boite.
+  // toHtml emits INLINE font-size:Npx per span (1080 canvas px). In the preview
+  // (frameW px), scale them like everything else -> otherwise the text overflows its box.
   function scaleRichText(rt: RichText, factor: number): RichText {
     if (!rt?.spans || !factor || factor === 1) return rt;
     return {
@@ -1876,7 +1876,7 @@
               <img src={ov.image_url} alt={ov.label ?? ''} class="ov-img" />
             {:else if ov.type === 'video' && ov.video_url}
               <!-- svelte-ignore a11y_media_has_caption -->
-              <!-- Pas d autoplay/loop : sync sur currentTime du master via $effect plus bas -->
+              <!-- No autoplay/loop: sync to the master's currentTime via $effect below -->
               <video bind:this={overlayVideoEls[ov.id]} src={ov.video_url} muted playsinline preload="auto" class="ov-img"></video>
             {/if}
             {#if selectedId === ov.id}
@@ -1891,7 +1891,7 @@
           </div>
         {/each}
 
-        <!-- Video incrustations : visibles sur le frame quand SAM2 OFF (sinon le pipeline backend remplace l ecran) -->
+        <!-- Video overlays: visible on the frame when SAM2 is OFF (otherwise the backend pipeline replaces the screen) -->
         {#each sam2Regions as r (r.id)}
           {#if r.enabled !== false && assetSrc(r) && !r.sam2_enabled && currentTime >= r.start_t && currentTime <= r.end_t}
             <div
@@ -2059,7 +2059,7 @@
                 value={legacyToRichText(sel)}
                 onchange={(rt) => {
                   sel.rich_text = rt;
-                  // Une fois migre, on ignore les legacy fields
+                  // Once migrated, ignore legacy fields
                   sel.text = undefined;
                   sel.text_lines = undefined;
                   dirty = true;
@@ -2277,7 +2277,7 @@
     </div>
 
     <div class="tracks-scroll">
-      <!-- Drag handle pour resize de la colonne sticky : barre verticale invisible-but-active a x = stickyColWidth -->
+      <!-- Drag handle to resize the sticky column: invisible-but-active vertical bar at x = stickyColWidth -->
       <div class="col-resizer" style:left={(stickyColWidth + 4) + 'px'} onpointerdown={startColResize} role="separator" aria-orientation="vertical" tabindex="0"></div>
       <div class="tracks" style:width={(zoom * 100) + '%'}>
       <!-- Time ruler -->
@@ -2356,7 +2356,7 @@
                 tabindex="0"
                 aria-label="trim start"
               ></span>
-              <!-- Mini-frame : indique la position de l overlay sur la video principale -->
+              <!-- Mini-frame: indicates the overlay's position on the main video -->
               <div class="pos-mini" style:aspect-ratio={AR_CSS[aspectRatio] ?? '9 / 16'} title={`Position : ${Math.round(ov.x_pct)}% × ${Math.round(ov.y_pct)}% · ${Math.round(ov.w_pct)}% × ${Math.round(ov.h_pct)}%`}>
                 <div class="pos-mini-rect"
                   style:left={ov.x_pct + '%'}
@@ -2365,7 +2365,7 @@
                   style:height={ov.h_pct + '%'}
                 ></div>
               </div>
-              <!-- Preview du contenu de l overlay dans le clip body -->
+              <!-- Preview of the overlay's content in the clip body -->
               {#if ov.type === 'text'}
                 <span class="clip-preview text" title={plainText(legacyToRichText(ov))}>
                   {plainText(legacyToRichText(ov)) || ov.label || ov.id}
@@ -2377,7 +2377,7 @@
                 {@const src = ov.video_url || ov.image_url || ''}
                 {@const isVideo = src.endsWith('.mp4') || src.endsWith('.webm') || src.endsWith('.mov') || src.startsWith('data:video')}
                 {#if isVideo && overlayFilmstrips[ov.id]}
-                  <!-- Filmstrip frame-by-frame (sprite-image stretchee sur toute la duree du clip) -->
+                  <!-- Frame-by-frame filmstrip (sprite image stretched over the clip's full duration) -->
                   <div class="clip-overlay-filmstrip" style:background-image={`url(${overlayFilmstrips[ov.id]})`}></div>
                 {:else if isVideo}
                   <!-- svelte-ignore a11y_media_has_caption -->
@@ -2400,8 +2400,8 @@
         </div>
       {/each}
 
-      <!-- Video incrustations : empilees AVEC les autres overlays, AU-DESSUS de la video principale -->
-      <!-- SAM2 + filtres = OPTION par incrustation (checkbox sam2_enabled), pas la valeur par defaut -->
+      <!-- Video overlays: stacked WITH the other overlays, ABOVE the main video -->
+      <!-- SAM2 + filters = OPTION per overlay (sam2_enabled checkbox), not the default -->
       {#each sam2Regions as r, idx (r.id)}
         <div class="track-row sam2-track-row" class:err={r.status === 'error'} class:active={selectedSam2Id === r.id} class:disabled={r.enabled === false} class:expanded={expandedTracks[r.id]}>
           <span class="track-label sam2 sticky" title={`Video ${idx+1} - ${r.ui_name || 'no asset'}`}>
@@ -2965,7 +2965,7 @@
     opacity: .6;
   }
 
-  /* Rushes : injection alpha sur la couleur fournie par data */
+  /* Source clips: alpha injection into the color supplied by data */
   .music-clip {
     background: linear-gradient(90deg, rgba(183,148,244,0.4) 0%, rgba(183,148,244,0.7) 50%, rgba(183,148,244,0.4) 100%);
     background-size: 8px 100%;
@@ -3149,7 +3149,7 @@
     cursor: grabbing;
   }
 
-  /* Mini-frame : visualise la position x/y/w/h de l overlay sur la video principale */
+  /* Mini-frame: shows the overlay's x/y/w/h position on the main video */
   .pos-mini {
     height: calc(100% - 6px);
     margin: 3px 6px 3px 4px;
@@ -3217,7 +3217,7 @@
     opacity: 1;
     pointer-events: none;
   }
-  /* Sur row expanded : thumbnail nettement plus grand, texte plus visible */
+  /* On expanded rows: much larger thumbnail, more visible text */
   .track-row.expanded .clip-preview { font-size: 16px; font-weight: 600; white-space: normal; line-height: 1.25; padding: 4px 10px; }
   .track-row.expanded .clip-preview-thumb { aspect-ratio: 16 / 9; max-width: 35%; }
 
@@ -3272,7 +3272,7 @@
     border-radius: 3px;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
   }
-  /* Narrative segment marker : juste un bord coloré + label, posé sur la filmstrip */
+  /* Narrative segment marker: just a colored border + label, placed on the filmstrip */
   .rush-marker {
     position: absolute;
     top: 2px; bottom: 2px;
@@ -3356,7 +3356,7 @@
     min-width: 0;                              /* permet aux enfants de retrecir */
     box-sizing: border-box;
   }
-  /* Volume slider : shrinkable et compact pour ne pas deborder la colonne */
+  /* Volume slider: shrinkable and compact to avoid overflowing the column */
   .track-label .vol-slider {
     flex: 0 1 60px;
     min-width: 30px;
@@ -3431,7 +3431,7 @@
     height: 24px;
     border: 1px solid rgba(255, 255, 255, 0.08);
   }
-  /* Tous les tracks ont le meme glass orange-tinted que le ruler */
+  /* All tracks have the same orange-tinted glass as the ruler */
   .ruler-tick {
     position: absolute;
     top: 0; bottom: 0;
@@ -3936,7 +3936,7 @@
 
   /* Index pill : "Video 1", "Video 2" visible dans le sticky label */
 
-  /* Inline mini-controls dans le track label de la timeline */
+  /* Inline mini-controls in the timeline's track label */
   .track-mini {
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.1);

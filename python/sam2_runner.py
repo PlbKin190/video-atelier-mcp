@@ -408,7 +408,7 @@ def execute(command, args):
     erosion = integer(args.get("erosion", 2), 0, 31, "erosion")
     blur = integer(args.get("blur", 9), 1, 99, "blur")
     if blur % 2 == 0:
-        raise RequestError("blur doit être impair.")
+        raise RequestError("blur must be odd.")
     # Temporary frames and masks are always cleaned, including failed inference.
     with tempfile.TemporaryDirectory(prefix="sam2-", dir=root) as directory:
         temp = Path(directory)
@@ -450,7 +450,7 @@ def main():
     except Exception:
         status = 1
         # No traceback, exception body, request, local path or credential in output.
-        response = {"ok": False, "error": {"code": "SAM2_FAILED", "message": "Traitement SAM2 impossible : vérifier média, mémoire disponible, cache models et compatibilité du paquet patché dans le profil sam2."}}
+        response = {"ok": False, "error": {"code": "SAM2_FAILED", "message": "SAM2 processing failed : check media, available memory, models cache and patched package compatibility in the sam2 profile."}}
     with os.fdopen(json_fd, "w", encoding="utf8") as stream:
         stream.write(json.dumps(response, ensure_ascii=False, allow_nan=False) + "\n")
     return status

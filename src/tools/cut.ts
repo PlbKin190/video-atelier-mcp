@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { tool, localFile, encode, outputPath, positive, nonnegative, type ToolServer } from './media.js';
 
 // Portage: video-studio-mcp/src/tools/ffmpeg-primitives.ts:55-77,107-127,205-230.
-// Pas de shell, codec logiciel libx264. La concaténation conserve le contrat vidéo seule.
+// No shell, libx264 software codec. Concatenation preserves the video-only contract.
 export function atempo(speed: number): string {
   const factors: number[] = []; let rest = speed;
   while (rest > 2) { factors.push(2); rest /= 2; }

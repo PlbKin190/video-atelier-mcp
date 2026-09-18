@@ -180,6 +180,9 @@ Stated plainly, because they are the difference between a demo and a tool:
 
 - **`comp_add_transition` is a fade to black, not a crossfade.** It does not overlap or shorten
   clips.
+- **`render_status` can briefly miss a job that is being written.** Job files are saved by writing
+  a temporary file and renaming it; a status call landing in that window sees `ENOENT` instead of
+  the job. Observed once in a twelve-call run. Poll again rather than treating it as a failure.
 - **An interrupted render restarts from the beginning.** The job is a durable JSON snapshot, so it
   survives a restart, but there is no partial resume.
 - **`sam2_video_inpaint` is spatial only** (SAM2 masks plus OpenCV Telea). There is no generative

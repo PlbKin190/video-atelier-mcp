@@ -86,8 +86,8 @@ async function pump(): Promise<void> {
         job.state = 'running'; job.attempts++; await saveJob(job);
         const output = await render(job, controller.signal);
         if (controller.signal.aborted) { await unlink(output).catch(() => undefined); throw new Error('Render cancelled'); }
-        // Le rendu fini est un média comme un autre, et son identifiant est celui du job : on peut
-        // donc le redonner tel quel à comp_add_clip, clip_trim ou export_formats.
+        // The finished render is a media item like any other, and its identifier is the job's: we can
+        // so pass it back unchanged to comp_add_clip, clip_trim or export_formats.
         await enregistrer(output, job.id);
         job.output = output; job.state = 'completed'; delete job.error;
       } catch (error) {
@@ -100,12 +100,12 @@ async function pump(): Promise<void> {
 }
 function schedule(): void { void pump().catch(error => { console.error('File de rendus:', error); }); }
 export async function recoverRenders(): Promise<void> {
-  // Un seul processus serveur par workDir. Pas de verrou inter-processus.
+  // Only one server process per workDir. No inter-process lock.
   for (const file of (await readdir(path.join(workDir, 'renders'))).filter(file => file.endsWith('.json')).sort()) {
     try {
       const job = await loadJob(file.slice(0, -5));
       if (job.state === 'running' || job.state === 'queued') {
-        // Publication atomique avant écriture du statut: reconnaître un rendu déjà terminé.
+        // Atomic publication before writing status: recognize an already completed render.
         const output = path.join(workDir, 'outputs', `${job.id}.mp4`);
         if ((await stat(output).catch(() => null))?.isFile()) { job.state = 'completed'; job.output = output; delete job.error; }
         else { job.state = 'queued'; queue.push(job.id); }
@@ -133,7 +133,7 @@ export function registerRender(server: ToolServer): void {
     const controller = controllers.get(job_id);
     if (controller) { controller.abort(); return { job_id, cancellation_requested: true }; }
     const job = await loadJob(job_id);
-    // Recontrôle après lecture asynchrone: le worker peut avoir pris le job.
+    // Recheck after asynchronous read: the worker may have picked up the job.
     const active = controllers.get(job_id);
     if (active) { active.abort(); return { job_id, cancellation_requested: true }; }
     if (job.state === 'queued') { const index = queue.indexOf(job_id); if (index >= 0) queue.splice(index, 1); job.state = 'cancelled'; await saveJob(job); }

@@ -9,7 +9,7 @@
    *  - Contenteditable + Selection/Range API (pas execCommand deprecated)
    *  - Toolbar : B / I / U / Font / Size / Color / Highlight / Align
    *  - Sortie : RichText (JSON serialisable, persistable en DB)
-   *  - Le meme editeur sert pour overlays statiques ET text-typing
+   *  - The same editor is used for static overlays AND text-typing
    */
   import { fromDom, toHtml, type RichText, type RichStyle } from './rich-text';
   import { TOKEN_WHITE, TOKEN_ORANGE } from './tokens';
@@ -29,7 +29,7 @@
   let initialized = false;
   let savedRange: Range | null = null;
 
-  // Init innerHTML une seule fois au mount (uncontrolled apres ca pour preserver caret)
+  // Init innerHTML only once on mount (uncontrolled afterwards to preserve the caret)
   $effect(() => {
     if (editorEl && !initialized) {
       editorEl.innerHTML = toHtml(value) || '';
