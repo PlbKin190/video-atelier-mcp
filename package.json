@@ -1,7 +1,7 @@
 {
   "name": "video-atelier-mcp",
   "version": "0.1.0",
-  "description": "Serveur MCP autonome d'édition vidéo, stockage local et transport stdio.",
+  "description": "Standalone MCP server for agent-driven video editing: local store, stdio transport, ffmpeg, SAM2 screen replacement, and a visual editor.",
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "bin": {
@@ -25,5 +25,10 @@
   "engines": {
     "node": ">=20"
   },
-  "private": true
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PlbKin190/video-atelier-mcp.git"
+  },
+  "author": "Christian Verbrugge"
 }
