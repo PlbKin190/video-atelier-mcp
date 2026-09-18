@@ -71,7 +71,7 @@ async function render(job: Job, signal: AbortSignal): Promise<string> {
     for (const track of comp.audio.tracks) tracks.push({ ...track, path: await mediaPath(track.media_id) });
     const partial = path.join(directory, 'final.mp4');
     await command([...tracks.flatMap(track => ['-i', track.path]), '-filter_complex', mixGraph(tracks, duration), '-map', '0:v:0', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-t', String(duration), '-movflags', '+faststart', partial], signal);
-    if (signal.aborted) throw new Error('Rendu annulé');
+    if (signal.aborted) throw new Error('Render cancelled');
     const output = path.join(workDir, 'outputs', `${job.id}.mp4`); await rename(partial, output); return output;
   } finally { await rm(directory, { recursive: true, force: true }); }
 }
@@ -85,7 +85,7 @@ async function pump(): Promise<void> {
       try {
         job.state = 'running'; job.attempts++; await saveJob(job);
         const output = await render(job, controller.signal);
-        if (controller.signal.aborted) { await unlink(output).catch(() => undefined); throw new Error('Rendu annulé'); }
+        if (controller.signal.aborted) { await unlink(output).catch(() => undefined); throw new Error('Render cancelled'); }
         // Le rendu fini est un média comme un autre, et son identifiant est celui du job : on peut
         // donc le redonner tel quel à comp_add_clip, clip_trim ou export_formats.
         await enregistrer(output, job.id);
@@ -111,7 +111,7 @@ export async function recoverRenders(): Promise<void> {
         else { job.state = 'queued'; queue.push(job.id); }
         await saveJob(job);
       }
-    } catch (error) { console.error(`Job ignoré ${file}:`, error); }
+    } catch (error) { console.error(`Skipped job ${file}:`, error); }
   }
   schedule();
 }
@@ -121,14 +121,14 @@ export async function stopRenders(): Promise<void> {
 }
 export function registerRender(server: ToolServer): void {
   tool(server, 'render_start', 'Start an asynchronous local render. The job is a durable JSON snapshot; an interrupted render restarts from the beginning.', { comp_id: idSchema }, async ({ comp_id }) => {
-    if (stopping) throw new Error('Serveur en arrêt');
+    if (stopping) throw new Error('Server shutting down');
     const composition = await loadComp(comp_id); const validation = await validateComp(composition);
     if (!validation.valid) throw new Error(validation.errors.join('\n'));
     const now = new Date().toISOString(); const job: Job = { id: randomUUID(), comp_id, composition, state: 'queued', attempts: 0, created_at: now, updated_at: now };
     await saveJob(job); queue.push(job.id); schedule(); return { job_id: job.id, state: 'queued' };
   });
   tool(server, 'render_status', 'Persisted render state (no estimated percentage).', { job_id: idSchema }, async ({ job_id }) => { const { composition: _snapshot, ...job } = await loadJob(job_id); return job; });
-  tool(server, 'render_get_output', 'Return the path of the finished MP4.', { job_id: idSchema }, async ({ job_id }) => { const job = await loadJob(job_id); if (job.state !== 'completed' || !job.output) throw new Error(`Rendu non disponible: ${job.state}`); return { job_id, id: job_id, path: await localFile(job.output) }; });
+  tool(server, 'render_get_output', 'Return the path of the finished MP4.', { job_id: idSchema }, async ({ job_id }) => { const job = await loadJob(job_id); if (job.state !== 'completed' || !job.output) throw new Error(`Render not available: ${job.state}`); return { job_id, id: job_id, path: await localFile(job.output) }; });
   tool(server, 'render_cancel', 'Cancel a queued job, or kill its running ffmpeg.', { job_id: idSchema }, async ({ job_id }) => {
     const controller = controllers.get(job_id);
     if (controller) { controller.abort(); return { job_id, cancellation_requested: true }; }

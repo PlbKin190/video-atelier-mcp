@@ -45,7 +45,7 @@
         const body: unknown = await response.json();
         if (!Array.isArray(body) || !body.every(item =>
           item && typeof item === 'object' && typeof item.id === 'string')) {
-          throw new Error('Réponse de liste invalide : un tableau de montages avec id est attendu.');
+          throw new Error('Invalid list response: an array of compositions with ids was expected.');
         }
         if (controller.signal.aborted) return;
         montages = body;
@@ -65,11 +65,11 @@
   <aside aria-label="Montages">
     <h1>Video Atelier</h1>
     {#if loadingList}
-      <p role="status">Chargement des montages…</p>
+      <p role="status">Loading compositions…</p>
     {:else if listError}
       <p class="error" role="alert">{listError}</p>
     {:else if montages.length === 0}
-      <p>Aucun montage disponible.</p>
+      <p>No compositions yet.</p>
     {:else}
       <nav aria-label="Choisir un montage">
         {#each montages as montage (montage.id)}
@@ -82,9 +82,9 @@
       </nav>
     {/if}
   </aside>
-  <main aria-label="Éditeur vidéo" aria-busy={loadingEditor}>
+  <main aria-label="Video editor" aria-busy={loadingEditor}>
     {#if loadingEditor}
-      <p class="placeholder" role="status">Chargement du montage…</p>
+      <p class="placeholder" role="status">Loading composition…</p>
     {:else if editorError}
       <div class="placeholder" role="alert">
         <p class="error">{editorError}</p>
@@ -96,11 +96,11 @@
       {/key}
     {:else if !loadingList && !listError && montages.length === 0}
       <div class="placeholder">
-        <h2>Aucun montage pour le moment</h2>
+        <h2>Nothing to edit yet</h2>
         <p>Créez un montage avec l’agent, puis rechargez cette page pour le reprendre ici.</p>
       </div>
     {:else}
-      <p class="placeholder">Choisissez un montage dans la barre latérale.</p>
+      <p class="placeholder">Pick a composition in the sidebar.</p>
     {/if}
   </main>
 </div>

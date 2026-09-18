@@ -23,7 +23,7 @@
     displayScale?: number;   // WYSIWYG : scale l'affichage des font_size_px (px canvas) a la taille preview
   };
 
-  let { value, onchange, compact = false, minHeight = '60px', placeholder = 'Tape ton texte...', displayScale = 1 }: Props = $props();
+  let { value, onchange, compact = false, minHeight = '60px', placeholder = 'Enter your text...', displayScale = 1 }: Props = $props();
 
   let editorEl: HTMLDivElement | null = $state(null);
   let initialized = false;
@@ -177,7 +177,7 @@
     <button type="button" onmousedown={(e) => e.preventDefault()} onclick={() => applyStyle({ text_decoration: 'underline' })} title="Underline (Cmd+U)" class="rte-btn"><u>U</u></button>
     <button type="button" onmousedown={(e) => e.preventDefault()} onclick={() => applyStyle({ text_decoration: 'line-through' })} title="Strikethrough" class="rte-btn"><s>S</s></button>
     <span class="rte-sep"></span>
-    <div class="rte-font-picker" title="Police">
+    <div class="rte-font-picker" title="Font">
       <button type="button" class="rte-font-trigger" style:font-family={pickFont} onmousedown={(e) => e.preventDefault()} onclick={() => (fontMenuOpen = !fontMenuOpen)}>
         {pickFont} <span class="rte-chev">▾</span>
       </button>
@@ -198,9 +198,9 @@
         </ul>
       {/if}
     </div>
-    <input type="number" min="8" max="200" step="1" bind:value={pickSize} onfocus={saveSelection} onchange={() => applyStyle({ font_size_px: pickSize })} title="Taille (px)" class="rte-input rte-num" />
+    <input type="number" min="8" max="200" step="1" bind:value={pickSize} onfocus={saveSelection} onchange={() => applyStyle({ font_size_px: pickSize })} title="Size (px)" class="rte-input rte-num" />
     <span class="rte-sep"></span>
-    <label class="rte-swatch" title="Couleur texte">
+    <label class="rte-swatch" title="Text colour">
       <input type="color" bind:value={pickColor} onfocus={saveSelection} onchange={() => applyStyle({ color: pickColor })} />
       <span class="rte-swatch-dot" style:background={pickColor}></span>
       <span>A</span>

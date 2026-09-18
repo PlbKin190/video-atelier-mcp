@@ -29,7 +29,7 @@ function object(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 function text(value: unknown, label: string): string {
-  if (typeof value !== "string" || !value.trim()) throw new Error(`${label} doit être une chaîne non vide.`);
+  if (typeof value !== "string" || !value.trim()) throw new Error(`${label} must be a non-empty string.`);
   return value;
 }
 function backendName(value: unknown): GenerationBackendName | undefined {

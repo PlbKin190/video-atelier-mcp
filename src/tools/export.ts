@@ -14,7 +14,7 @@ export function registerExport(server: ToolServer): void {
   tool(server, 'export_gif', 'Export a GIF excerpt with an optimised palette (30 seconds max).', { input: z.string(), start: z.number().finite().nonnegative().default(0), duration: z.number().finite().positive().max(30).default(5), width: z.number().int().min(2).max(1920).default(480), fps: z.number().int().min(1).max(30).default(12) }, async ({ input, start, duration, width, fps }) => encode(['-ss', String(start), '-t', String(duration), '-i', await localFile(input), '-filter_complex', `[0:v:0]fps=${fps},scale=${width}:-2:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse[v]`, '-map', '[v]', '-an', '-loop', '0'], 'gif'));
   tool(server, 'export_thumbnail_set', 'Extract a set of thumbnails, one at the centre of each interval.', { input: z.string(), count: z.number().int().min(1).max(100).default(5), width: z.number().int().min(2).max(4096).default(640) }, async ({ input, count, width }) => {
     const file = await localFile(input); const info = await probe(file); const duration = Number(info.format?.duration);
-    if (!Number.isFinite(duration) || duration <= 0) throw new Error('Durée vidéo inconnue');
+    if (!Number.isFinite(duration) || duration <= 0) throw new Error('Unknown video duration');
     const thumbnails: Array<{ time: number; path: string }> = [];
     for (let i = 0; i < count; i++) { const time = duration * (i + 0.5) / count; thumbnails.push({ time, ...(await thumbnail(file, time, width)) }); }
     return { thumbnails };

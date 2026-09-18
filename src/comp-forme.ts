@@ -27,10 +27,10 @@ export interface EditorData {
 
 function aspectRatio(width: number, height: number): AspectRatio {
   if (!(width > 0 && height > 0 && Number.isFinite(width + height))) {
-    throw new Error('Dimensions de composition invalides.');
+    throw new Error('Invalid composition dimensions.');
   }
-  // Les dimensions originales restent souveraines au retour. Un format exotique
-  // est affiché avec le ratio disponible le plus proche, sans redimensionnement.
+  // Original dimensions remain authoritative on conversion back. A custom format
+  // is displayed with the closest available ratio, without resizing.
   const ratios: [AspectRatio, number][] = [
     ['9:16', 9 / 16], ['16:9', 16 / 9], ['4:5', 4 / 5], ['1:1', 1],
   ];
@@ -65,38 +65,38 @@ export function versEditeur(comp: Composition, videoUrl: string): EditorData {
 }
 
 function mediaId(url: string | undefined): string {
-  // Pas d'URL externe ni d'import implicite : seul un média local est réversible.
+  // No external URLs or implicit imports: only local media can be round-tripped.
   const match = /^\/media\/([^/?#]+)$/.exec(url ?? '');
-  if (!match) throw new Error('Image attendue sous la forme /media/<id>.');
+  if (!match) throw new Error('Expected an image URL in the form /media/<id>.');
   const id = decodeURIComponent(match[1]!);
-  if (!id || /[/\\]/.test(id)) throw new Error('Identifiant média invalide.');
+  if (!id || /[/\\]/.test(id)) throw new Error('Invalid media id.');
   return id;
 }
 
 /**
- * CONTRAT : depuisEditeur(versEditeur(comp, videoUrl), comp) rend une
- * composition identique à comp, sans mutation (y compris champs inconnus).
- * comp est la base originale conservée côté serveur, jamais un JSON éditeur.
- * Clips, transitions, audio, dimensions, dates et champs non représentables
- * sont conservés. La suppression d'un overlay supprime intentionnellement
- * cet élément. Le ratio, la durée globale et video_url sont des projections,
- * pas des instructions de modification de la timeline.
+ * CONTRACT: depuisEditeur(versEditeur(comp, videoUrl), comp) returns a
+ * composition identical to comp, without mutation (including unknown fields).
+ * comp is the original server-side base, never editor JSON.
+ * Clips, transitions, audio, dimensions, dates and unrepresentable fields
+ * are preserved. Removing an overlay intentionally removes
+ * that element. The ratio, total duration and video_url are projections,
+ * not instructions to modify the timeline.
  */
 export function depuisEditeur(data: EditorData, comp: Composition): Composition {
-  if (!Array.isArray(data.overlays)) throw new Error('Liste overlays requise.');
+  if (!Array.isArray(data.overlays)) throw new Error('An overlays list is required.');
   const projected = versEditeur(comp, data.video_url);
   const texts: Composition['texts'] = [];
   const images: Composition['overlays'] = [];
   const seen = new Set<string>();
   for (const overlay of data.overlays) {
     const key = `${overlay.type}:${overlay.id}`;
-    if (seen.has(key)) throw new Error(`Overlay dupliqué : ${key}`);
+    if (seen.has(key)) throw new Error(`Duplicate overlay: ${key}`);
     seen.add(key);
     const before = projected.overlays.find(o => o.id === overlay.id && o.type === overlay.type);
     const oldText = overlay.type === 'text' ? comp.texts?.find(t => t.id === overlay.id) : undefined;
     const oldImage = overlay.type === 'image' ? comp.overlays.find(o => o.id === overlay.id) : undefined;
     const old = oldText ?? oldImage;
-    // Évite la dérive (start + duration) - start et px -> % -> px.
+    // Avoid drift from (start + duration) - start and px -> % -> px.
     const duration = old && before && overlay.start_t === before.start_t && overlay.end_t === before.end_t
       ? old.duration : overlay.end_t - overlay.start_t;
     if (overlay.type === 'text') {
@@ -107,14 +107,14 @@ export function depuisEditeur(data: EditorData, comp: Composition): Composition 
       };
       const candidate = { ...oldText, ...changes };
       const parsed = textOverlaySchema.parse(candidate);
-      // Defaults uniquement pour les nouveaux éléments ; ne pas effacer les
-      // extensions que Zod ne connaît pas (bg_color/align/font_family inclus).
+      // Apply defaults only to new elements; do not discard extensions
+      // unknown to Zod (including bg_color/align/font_family).
       texts.push(oldText ? { ...candidate } as Composition['texts'][number] : parsed);
     } else if (overlay.type === 'image') {
       const pixels = (value: number | undefined, previous: number | undefined,
         original: number | undefined, size: number): number => {
         if (original !== undefined && value === previous) return original;
-        if (value === undefined || !Number.isFinite(value)) throw new Error('Géométrie image invalide.');
+        if (value === undefined || !Number.isFinite(value)) throw new Error('Invalid image geometry.');
         return Math.round(value / 100 * size);
       };
       const candidate = {
@@ -125,13 +125,13 @@ export function depuisEditeur(data: EditorData, comp: Composition): Composition 
         width: pixels(overlay.w_pct, before?.w_pct, oldImage?.width, comp.width),
         height: pixels(overlay.h_pct, before?.h_pct, oldImage?.height, comp.height),
       };
-      overlaySchema.parse(candidate); // Validation sans perdre les extensions.
+      overlaySchema.parse(candidate); // Validate without losing extensions.
       images.push(candidate);
     } else {
-      throw new Error('Type overlay non représentable.');
+      throw new Error('Overlay type cannot be represented.');
     }
   }
-  // Ne pas ajouter texts: [] aux anciens documents qui ne le possédaient pas.
+  // Do not add texts: [] to older documents that did not have it.
   const result = { ...comp, overlays: images };
   if (comp.texts !== undefined || texts.length) result.texts = texts;
   return result;

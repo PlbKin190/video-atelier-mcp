@@ -24,9 +24,9 @@ import tempfile
 
 MODEL_ID = "facebook/sam2-hiera-small"
 COMMANDS = {"segment-image", "segment-video", "track", "propagate", "refine", "screen-replace", "inpaint"}
-HELP = ("SAM2 indisponible : utilisez le profil Docker sam2 "
-        "(docker compose --profile sam2 up), avec les dépendances et la "
-        "distribution SAM2 patchée compatible. Sa provenance reste à identifier.")
+HELP = ("SAM2 unavailable: use the sam2 Docker profile "
+        "(docker compose --profile sam2 up), with the dependencies and a "
+        "compatible patched SAM2 distribution. Its source has yet to be identified.")
 
 
 class RequestError(Exception):
@@ -46,26 +46,26 @@ def work_root() -> Path:
 def inside(root: Path, candidate: Path) -> Path:
     candidate = candidate.resolve()
     if not candidate.is_relative_to(root) or candidate == root:
-        raise RequestError("Chemin hors du dossier de travail ou racine interdits.")
+        raise RequestError("Paths outside the work directory and the work directory itself are not allowed.")
     return candidate
 
 
 def input_path(root: Path, value) -> Path:
     if not isinstance(value, str) or not value or Path(value).is_absolute() or "\0" in value:
-        raise RequestError("Un chemin relatif de fichier est requis.")
+        raise RequestError("A relative file path is required.")
     result = inside(root, root / value)
     if not result.is_file():
-        raise RequestError("Fichier d'entrée absent ou non régulier dans ATELIER_WORK_DIR.")
+        raise RequestError("The input file is missing or is not a regular file in ATELIER_WORK_DIR.")
     return result
 
 
 def output_path(root: Path, value) -> Path:
     if not isinstance(value, str) or not value or Path(value).is_absolute() or "\0" in value:
-        raise RequestError("Un chemin de sortie relatif est requis.")
+        raise RequestError("A relative output path is required.")
     raw = root / value
     # lexists detects dangling links as well; no destructive overwrite.
     if os.path.lexists(raw):
-        raise RequestError("Destination existante : écrasement interdit.")
+        raise RequestError("The destination already exists: overwriting is not allowed.")
     result = inside(root, raw)
     result.parent.mkdir(parents=True, exist_ok=True)
     inside(root, result.parent) if result.parent != root else None
@@ -74,7 +74,7 @@ def output_path(root: Path, value) -> Path:
 
 def integer(value, low: int, high: int, name: str) -> int:
     if type(value) is not int or not low <= value <= high:
-        raise RequestError(f"{name} : entier entre {low} et {high} requis.")
+        raise RequestError(f"{name}: an integer between {low} and {high} is required.")
     return value
 
 
@@ -90,13 +90,13 @@ def refine_mask(mask_raw, erosion: int, blur: int):
 def read_image(file: Path, grayscale=False):
     image = cv2.imread(str(file), cv2.IMREAD_GRAYSCALE if grayscale else cv2.IMREAD_COLOR)
     if image is None:
-        raise RequestError("Image ou masque illisible.")
+        raise RequestError("Cannot read the image or mask.")
     return image
 
 
 def write_image(file: Path, image):
     if not cv2.imwrite(str(file), image):
-        raise RequestError("Impossible d'écrire l'image de sortie.")
+        raise RequestError("Cannot write the output image.")
 
 
 def extract_frames(source: Path, directory: Path, single: bool):
@@ -111,15 +111,15 @@ def extract_frames(source: Path, directory: Path, single: bool):
         cap = cv2.VideoCapture(str(source))
         if not cap.isOpened():
             cap.release()
-            raise RequestError("Vidéo illisible par OpenCV.")
+            raise RequestError("OpenCV cannot read the video.")
         fps = float(cap.get(cv2.CAP_PROP_FPS))
         if not math.isfinite(fps) or fps <= 0:
             cap.release()
-            raise RequestError("Fréquence vidéo absente ou invalide.")
+            raise RequestError("The video frame rate is missing or invalid.")
         ok, frame = cap.read()
         if not ok:
             cap.release()
-            raise RequestError("Vidéo sans image décodable.")
+            raise RequestError("The video contains no decodable frames.")
     try:
         while frame is not None:
             h, w = frame.shape[:2]
@@ -129,7 +129,7 @@ def extract_frames(source: Path, directory: Path, single: bool):
                 small_w = max(2, int(w * scale) & ~1)
                 small_h = max(2, int(h * scale) & ~1)
             elif (w, h) != (width, height):
-                raise RequestError("Dimensions vidéo variables non prises en charge.")
+                raise RequestError("Variable video dimensions are not supported.")
             write_image(directory / f"{count:05d}.jpg", cv2.resize(frame, (small_w, small_h)))
             count += 1
             if single:
@@ -147,11 +147,11 @@ def validate_points(value, width: int, height: int):
     try:
         points = np.asarray(value, dtype=np.float32)
     except (TypeError, ValueError):
-        raise RequestError("Points [x,y] numériques requis.") from None
+        raise RequestError("Numeric [x,y] points are required.") from None
     if points.ndim != 2 or points.shape[1] != 2 or not 1 <= len(points) <= 256:
-        raise RequestError("Entre 1 et 256 points [x,y] requis.")
+        raise RequestError("Between 1 and 256 [x,y] points are required.")
     if not np.isfinite(points).all() or (points < 0).any() or (points[:, 0] >= width).any() or (points[:, 1] >= height).any():
-        raise RequestError("Points hors image ou non finis.")
+        raise RequestError("Points are outside the image or have non-finite coordinates.")
     return points
 
 
@@ -161,7 +161,7 @@ def mask_prompts(mask):
     points, labels = [], []
     foreground = mask > 127
     if not foreground.any():
-        raise RequestError("Le masque initial est vide.")
+        raise RequestError("The initial mask is empty.")
     for label, region in ((1, foreground), (0, ~foreground)):
         distance = cv2.distanceTransform(region.astype(np.uint8), cv2.DIST_L2, 5)
         for _ in range(8):
@@ -182,13 +182,13 @@ def load_predictor():
         raise Unavailable(HELP) from None
     device = os.environ.get("ATELIER_SAM2_DEVICE", "cpu")
     if device not in {"cpu", "cuda", "mps"}:
-        raise RequestError("ATELIER_SAM2_DEVICE : cpu, cuda ou mps requis.")
+        raise RequestError("ATELIER_SAM2_DEVICE: cpu, cuda or mps is required.")
     try:
         predictor = build_sam2_video_predictor_hf(MODEL_ID, device=device)
     except (ImportError, AttributeError, TypeError):
         raise Unavailable(HELP) from None
     except Exception:
-        raise RequestError("Chargement du modèle SAM2 impossible : vérifier accès réseau au premier usage, espace disque, cache models et compatibilité du profil sam2.") from None
+        raise RequestError("Cannot load the SAM2 model: check network access on first use, disk space, the models cache and sam2 profile compatibility.") from None
     for name in ("init_state", "reset_state", "add_new_points_or_box", "propagate_in_video"):
         if not callable(getattr(predictor, name, None)):
             raise Unavailable(HELP)
@@ -251,13 +251,13 @@ def make_masks(command, args, root, temp, output, erosion, blur):
     if command == "propagate":
         initial = read_image(input_path(root, args.get("mask")), True)
         if initial.shape != (h, w):
-            raise RequestError("Le masque initial doit avoir les dimensions de la vidéo.")
+            raise RequestError("The initial mask must match the video dimensions.")
         points, labels = mask_prompts(initial)
     else:
         points = validate_points(args.get("points"), w, h)
         values = args.get("labels", [1] * len(points))
         if not isinstance(values, list) or len(values) != len(points) or any(type(v) is not int or v not in (0, 1) for v in values) or 1 not in values:
-            raise RequestError("labels doit contenir un 0 ou 1 par point et au moins un 1.")
+            raise RequestError("labels must contain a 0 or 1 for each point and at least one 1.")
         labels = np.asarray(values, dtype=np.int32)
     points = points * np.float32([sw / w, sh / h])
     predictor = load_predictor()
@@ -268,7 +268,7 @@ def make_masks(command, args, root, temp, output, erosion, blur):
     with trajectory.open("w", encoding="utf8") as track:
         for index, raw in propagated_masks(predictor, frames, points, labels):
             if index < 0 or index >= count or index in seen:
-                raise RequestError("Indices de propagation SAM2 incohérents.")
+                raise RequestError("Inconsistent SAM2 propagation indices.")
             seen.add(index)
             full = cv2.resize(raw, (w, h), interpolation=cv2.INTER_NEAREST)
             alpha = refine_mask(full, erosion, blur)
@@ -278,7 +278,7 @@ def make_masks(command, args, root, temp, output, erosion, blur):
             centroid = [float(xs.mean()), float(ys.mean())] if len(xs) else None
             track.write(json.dumps({"frame": index, "time": index / fps, "object_id": 1, "bbox_xyxy": bbox, "centroid": centroid}) + "\n")
     if len(seen) != count:
-        raise RequestError("SAM2 n'a pas produit de masque pour chaque image.")
+        raise RequestError("SAM2 did not produce a mask for every frame.")
     metadata = {"frames": count, "fps": fps, "width": w, "height": h, "model": MODEL_ID,
                 "mask_pattern": "%05d.png", "track": "track.jsonl", "audio": False}
     if command == "propagate":
@@ -336,11 +336,11 @@ def render_video(command, args, root, source, masks, temp, output, metadata):
             if replacement_image is None:
                 replacement_cap = cv2.VideoCapture(str(replacement))
                 if not replacement_cap.isOpened():
-                    raise RequestError("Image ou vidéo de remplacement illisible.")
+                    raise RequestError("Replacement image or video could not be read.")
         for index in range(count):
             ok, frame = cap.read()
             if not ok:
-                raise RequestError("Vidéo interrompue pendant le rendu.")
+                raise RequestError("Video interrupted during rendering.")
             mask = read_image(masks / f"{index:05d}.png", True)
             if command == "inpaint":
                 # Explicit spatial fallback, not a temporal/generative inpainting model.
@@ -355,7 +355,7 @@ def render_video(command, args, root, source, masks, temp, output, metadata):
                     else:
                         ui = last_ui
                 if ui is None:
-                    raise RequestError("Remplacement sans image décodable.")
+                    raise RequestError("Replacement has no decodable frame.")
                 matrix = compute_homography_from_mask(np.uint8(mask > 127), ui, cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
                 rendered = frame
                 if matrix is not None:
@@ -370,7 +370,7 @@ def render_video(command, args, root, source, masks, temp, output, metadata):
         if replacement_cap is not None:
             replacement_cap.release()
     if not intermediate.is_file() or intermediate.stat().st_size == 0:
-        raise RequestError("Le rendu vidéo est vide.")
+        raise RequestError("The rendered video is empty.")
     publish_file(intermediate, output)
 
 
@@ -386,7 +386,7 @@ def execute(command, args):
         "screen-replace": {"points", "labels", "replacement"},
     }
     if set(args) - shared - extras[command]:
-        raise RequestError("Paramètre inconnu pour cette sous-commande.")
+        raise RequestError("Unknown parameter for this subcommand.")
     root = work_root()
     # Must be set BEFORE importing Hugging Face/SAM2. No model in the base image.
     models = inside(root, root / "models")
@@ -433,11 +433,11 @@ def main():
             raise RequestError("Une sous-commande est requise : " + ", ".join(sorted(COMMANDS)))
         raw = sys.stdin.buffer.read(1024 * 1024 + 1)
         if len(raw) > 1024 * 1024:
-            raise RequestError("Requête JSON trop volumineuse.")
+            raise RequestError("JSON request too large.")
         try:
             args = json.loads(raw)
         except (ValueError, UnicodeError):
-            raise RequestError("Entrée JSON invalide.") from None
+            raise RequestError("Invalid JSON input.") from None
         with contextlib.redirect_stdout(sys.stderr):
             result = execute(sys.argv[1], args)
         response = {"ok": True, "result": result}

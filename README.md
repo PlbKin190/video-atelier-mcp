@@ -186,9 +186,10 @@ Stated plainly, because they are the difference between a demo and a tool:
   model behind it, and no guaranteed temporal consistency between frames.
 - **`sam2_propagate_mask` is approximate** — it samples inside/outside points from the mask you
   give it rather than replaying the original prompt.
-- **The `sam2` image installs SAM2 from Meta's official repository.** The version this was
-  originally built against was a locally patched one whose source could not be identified; check
-  that the official package behaves as you need before relying on it.
+- **The `sam2` profile has never been built or run**, and the pipeline it was ported from used a
+  locally patched build of `sam2` whose provenance could not be established. `Dockerfile.sam2`
+  installs Meta's official package (Apache-2.0, as are the `sam2-hiera-small` weights); check that
+  it behaves as you need before relying on it.
 - **No Remotion bridge.** The editor below covers hand editing; template-driven React rendering
   was left behind on purpose, to keep a browser out of the image.
 - **The work directory is trusted.** Paths are confined to it, but there is no sandbox and no SSRF
@@ -215,8 +216,11 @@ organisations and government institutions are covered by the free licence too �
 explicitly, whatever their funding.
 
 **Commercial licence.** Using this to earn money — including inside a company, for its own internal
-work — needs a commercial licence. It is granted, not withheld: ask.
-<!-- TODO: mettre ici l'adresse de contact commerciale avant de publier le dépôt. -->
+work — needs a commercial licence. It is granted, not withheld: write to
+**christian@d-fairy.fr**.
 
 Patches are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md), which explains the one grant a
 contributor makes so that contributions can ship inside that commercial licence.
+
+Every dependency, its licence, and what the GPL ffmpeg in the Docker image does and does not mean
+for your own code: [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

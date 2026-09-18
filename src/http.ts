@@ -37,29 +37,29 @@ function publicError(res: ServerResponse, error: unknown): void {
   if (res.headersSent) { res.destroy(); return; }
   if (error instanceof HttpError) { json(res, error.status, { error: error.message }); return; }
   if (code(error) === 'ENOENT' || code(error) === 'ENOTDIR') { json(res, 404, { error: 'Ressource introuvable.' }); return; }
-  json(res, 500, { error: 'Impossible de traiter la demande.' });
+  json(res, 500, { error: 'Could not handle the request.' });
 }
 async function body(req: IncomingMessage): Promise<unknown> {
   if (!/^application\/json(?:\s*;|$)/i.test(req.headers['content-type'] || '')) throw new HttpError(415, 'Corps application/json requis.');
-  if (req.headers['content-encoding'] && req.headers['content-encoding'] !== 'identity') throw new HttpError(415, 'Corps compressé non pris en charge.');
+  if (req.headers['content-encoding'] && req.headers['content-encoding'] !== 'identity') throw new HttpError(415, 'Compressed request bodies are not supported.');
   const limit = 2 * 1024 * 1024;
-  if (Number(req.headers['content-length']) > limit) throw new HttpError(413, 'Corps limité à 2 Mio.');
+  if (Number(req.headers['content-length']) > limit) throw new HttpError(413, 'Request body is capped at 2 MiB.');
   // Écouteurs plutôt qu’un iterator détruisant la socket avant la réponse 413.
   return new Promise((resolve, reject) => {
     let size = 0; let failed = false; const chunks: Buffer[] = [];
     req.on('data', (chunk: Buffer) => {
       if (failed) return;
       size += chunk.length;
-      if (size > limit) { failed = true; chunks.length = 0; reject(new HttpError(413, 'Corps limité à 2 Mio.')); }
+      if (size > limit) { failed = true; chunks.length = 0; reject(new HttpError(413, 'Request body is capped at 2 MiB.')); }
       else chunks.push(chunk);
     });
     req.once('end', () => {
       if (failed) return;
       try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
-      catch { reject(new HttpError(400, 'JSON invalide.')); }
+      catch { reject(new HttpError(400, 'Invalid JSON.')); }
     });
     req.once('error', reject);
-    req.once('aborted', () => reject(new HttpError(400, 'Requête interrompue.')));
+    req.once('aborted', () => reject(new HttpError(400, 'Request aborted.')));
   });
 }
 const versionSchema = z.object({ ts: z.string(), label: z.string(), comp: compositionSchema });
@@ -141,7 +141,7 @@ async function sendFile(req: IncomingMessage, res: ServerResponse, file: string,
       if (!valid) {
         res.setHeader('Content-Range', `bytes */${size}`);
         res.setHeader('Accept-Ranges', 'bytes');
-        json(res, 416, { error: 'Plage invalide ; une seule plage bytes est prise en charge.' }); return;
+        json(res, 416, { error: 'Invalid range: only a single byte range is supported.' }); return;
       }
       partial = true;
     }
@@ -160,12 +160,12 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
   res.setHeader('X-Frame-Options', 'DENY');
   const host = `127.0.0.1:${req.socket.localPort}`;
-  if (req.headers.host !== host || (req.headers.origin && req.headers.origin !== `http://${host}`) || req.headers['sec-fetch-site'] === 'cross-site') throw new HttpError(403, 'Accès local de même origine requis.');
-  if (!req.url?.startsWith('/') || req.url.startsWith('//')) throw new HttpError(400, 'URL invalide.');
+  if (req.headers.host !== host || (req.headers.origin && req.headers.origin !== `http://${host}`) || req.headers['sec-fetch-site'] === 'cross-site') throw new HttpError(403, 'Local same-origin access required.');
+  if (!req.url?.startsWith('/') || req.url.startsWith('//')) throw new HttpError(400, 'Invalid URL.');
   let pathname: string;
   try { pathname = decodeURIComponent(new URL(req.url, `http://${host}`).pathname); }
-  catch { throw new HttpError(400, 'URL invalide.'); }
-  if (pathname.includes('\0') || pathname.includes('\\')) throw new HttpError(400, 'URL invalide.');
+  catch { throw new HttpError(400, 'Invalid URL.'); }
+  if (pathname.includes('\0') || pathname.includes('\\')) throw new HttpError(400, 'Invalid URL.');
   const method = req.method;
   if ((pathname === '/api/sam2/screen-replace' && method === 'POST') || (pathname === '/api/sam2/progress' && method === 'GET')) {
     json(res, 501, { error: 'Cette passerelle HTTP ne fournit pas SAM2. Activer le profil sam2 et utiliser les outils MCP SAM2 ; aucun remplacement ni suivi simulé.' }); return;
@@ -186,13 +186,13 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
     if (!compRoute[2] && method === 'GET') { json(res, 200, await editorResult(await loadComp(id))); return; }
     if (!compRoute[2] && method === 'PATCH') {
       const parsed = z.object({ output_assets: z.record(z.unknown()) }).strict().safeParse(await body(req));
-      if (!parsed.success) throw new HttpError(400, 'Corps attendu : { output_assets: objet }.');
+      if (!parsed.success) throw new HttpError(400, 'Expected body: { output_assets: object }.');
       const comp = await mutateComp(id, async current => {
         // Le convertisseur ne reçoit pas l’original à archiver et doit refuser les données non représentables.
         let converted: Composition;
         try {
           converted = compositionSchema.parse(await depuisEditeur(parsed.data.output_assets as unknown as Parameters<typeof depuisEditeur>[0], structuredClone(current)));
-        } catch { throw new HttpError(422, 'Données éditeur invalides ou conversion non prise en charge.'); }
+        } catch { throw new HttpError(422, 'Invalid editor data, or a shape this converter does not support.'); }
         converted.id = current.id; converted.created_at = current.created_at;
         await archive(current, 'before-patch');
         Object.assign(current, converted);
@@ -205,7 +205,7 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
     }
     if (compRoute[2] && method === 'POST') {
       const parsed = z.object({ idx: z.number().int().nonnegative().safe() }).strict().safeParse(await body(req));
-      if (!parsed.success) throw new HttpError(400, 'Corps attendu : { idx: entier positif ou nul }.');
+      if (!parsed.success) throw new HttpError(400, 'Expected body: { idx: non-negative integer }.');
       const comp = await mutateComp(id, async current => {
         const all = await versions(id); const selected = all[parsed.data.idx];
         if (!selected) throw new HttpError(404, 'Version introuvable.');
@@ -257,7 +257,7 @@ export function startUi(port = 4321): Promise<{ url: string; interface_ready: bo
       if (!address || typeof address === 'string') { server.close(); throw new Error('Adresse HTTP indisponible.'); }
       active = server; activeUrl = `http://127.0.0.1:${address.port}`;
     }
-    return { url: activeUrl!, interface_ready: ready, message: ready ? 'Ouvrir cette URL sur la machine qui exécute le serveur MCP.' : buildHelp };
+    return { url: activeUrl!, interface_ready: ready, message: ready ? 'Open this URL on the machine running the MCP server.' : buildHelp };
   });
 }
 export function stopUi(): Promise<void> {

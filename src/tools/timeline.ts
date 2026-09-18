@@ -35,19 +35,19 @@ export async function mutateComp(id: string, change: (comp: Composition) => void
 export function totalDuration(comp: Composition): number { return comp.clips.reduce((sum, clip) => sum + clip.duration, 0); }
 export async function validateComp(comp: Composition): Promise<{ valid: boolean; errors: string[]; duration: number }> {
   const errors: string[] = []; const duration = totalDuration(comp);
-  if (!comp.clips.length) errors.push('Ajouter au moins un clip vidéo.');
+  if (!comp.clips.length) errors.push('Add at least one video clip.');
   for (const clip of comp.clips) {
     try {
       const info = await probe(await mediaPath(clip.media_id));
-      if (!info.streams.some(stream => stream.codec_type === 'video')) errors.push(`Clip ${clip.id}: piste vidéo absente`);
+      if (!info.streams.some(stream => stream.codec_type === 'video')) errors.push(`Clip ${clip.id}: no video track`);
       const length = Number(info.format?.duration);
-      if (!Number.isFinite(length) || clip.in + clip.duration > length + 0.05) errors.push(`Clip ${clip.id}: durée source insuffisante ou inconnue`);
+      if (!Number.isFinite(length) || clip.in + clip.duration > length + 0.05) errors.push(`Clip ${clip.id}: source is too short, or its duration is unknown`);
     } catch (error) { errors.push(`Clip ${clip.id}: ${String(error)}`); }
   }
   for (const overlay of comp.overlays) {
-    if (overlay.start + overlay.duration > duration) errors.push(`Overlay ${overlay.id}: dépasse la composition`);
-    if (overlay.x + overlay.width > comp.width || overlay.y + overlay.height > comp.height) errors.push(`Overlay ${overlay.id}: dépasse le cadre`);
-    try { if (!(await probe(await mediaPath(overlay.media_id))).streams.some(s => s.codec_type === 'video')) errors.push(`Overlay ${overlay.id}: image/vidéo requise`); }
+    if (overlay.start + overlay.duration > duration) errors.push(`Overlay ${overlay.id}: runs past the end of the composition`);
+    if (overlay.x + overlay.width > comp.width || overlay.y + overlay.height > comp.height) errors.push(`Overlay ${overlay.id}: falls outside the frame`);
+    try { if (!(await probe(await mediaPath(overlay.media_id))).streams.some(s => s.codec_type === 'video')) errors.push(`Overlay ${overlay.id}: an image or video is required`); }
     catch (error) { errors.push(`Overlay ${overlay.id}: ${String(error)}`); }
   }
   for (const text of comp.texts) {
@@ -55,20 +55,20 @@ export async function validateComp(comp: Composition): Promise<{ valid: boolean;
     if (!parsed.success) {
       for (const issue of parsed.error.issues) errors.push(`Texte ${text.id}: ${issue.path.join('.')}: ${issue.message}`);
     }
-    if (text.start >= duration || text.start + text.duration > duration) errors.push(`Texte ${text.id}: dépasse la composition`);
+    if (text.start >= duration || text.start + text.duration > duration) errors.push(`Text ${text.id}: runs past the end of the composition`);
   }
   for (const transition of comp.transitions) {
     const index = comp.clips.findIndex(clip => clip.id === transition.after_clip_id);
     if (index < 0 || index === comp.clips.length - 1) errors.push('Transition sans paire de clips');
-    else if (transition.duration * 2 > Math.min(comp.clips[index]!.duration, comp.clips[index + 1]!.duration)) errors.push('Transition trop longue (maximum une demi-durée de chaque clip)');
+    else if (transition.duration * 2 > Math.min(comp.clips[index]!.duration, comp.clips[index + 1]!.duration)) errors.push('Transition too long: at most half the duration of each clip');
   }
   for (const track of comp.audio.tracks) {
-    if (track.start >= duration) errors.push('Piste audio après la fin du montage');
+    if (track.start >= duration) errors.push('Audio track starts after the composition ends');
     try {
       const info = await probe(await mediaPath(track.media_id));
-      if (!info.streams.some(s => s.codec_type === 'audio')) errors.push(`Média ${track.media_id}: audio absent`);
+      if (!info.streams.some(s => s.codec_type === 'audio')) errors.push(`Media ${track.media_id}: no audio`);
       const length = Number(info.format?.duration);
-      if (Number.isFinite(length) && (track.trim_start >= length || (track.duration !== undefined && track.trim_start + track.duration > length + 0.05))) errors.push(`Média ${track.media_id}: plage audio hors source`);
+      if (Number.isFinite(length) && (track.trim_start >= length || (track.duration !== undefined && track.trim_start + track.duration > length + 0.05))) errors.push(`Media ${track.media_id}: audio range falls outside the source`);
     } catch (error) { errors.push(`Audio: ${String(error)}`); }
   }
   return { valid: errors.length === 0, errors, duration };

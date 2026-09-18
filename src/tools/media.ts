@@ -30,7 +30,7 @@ export async function initWork(): Promise<void> {
   const root = await realpath(workDir);
   for (const dir of ['media', 'outputs', 'compositions', 'renders', 'tmp']) {
     const target = path.join(workDir, dir); await mkdir(target, { recursive: true });
-    if (await realpath(target) !== path.join(root, dir)) throw new Error(`Dossier symbolique interdit: ${dir}`);
+    if (await realpath(target) !== path.join(root, dir)) throw new Error(`Symlinked directory refused: ${dir}`);
   }
 }
 export async function atomicJson(file: string, value: unknown): Promise<void> {
@@ -42,7 +42,7 @@ export async function readJson<T>(file: string): Promise<T> { return JSON.parse(
 export function recordPath(folder: string, id: string): string { return path.join(workDir, folder, `${idSchema.parse(id)}.json`); }
 async function cheminValide(input: string): Promise<string> {
   const root = await realpath(workDir); const resolved = await realpath(path.resolve(workDir, input));
-  if (!resolved.startsWith(`${root}${path.sep}`) || !(await stat(resolved)).isFile()) throw new Error('Fichier requis à l’intérieur de ATELIER_WORK_DIR. Utiliser media_import.');
+  if (!resolved.startsWith(`${root}${path.sep}`) || !(await stat(resolved)).isFile()) throw new Error('The file must live inside ATELIER_WORK_DIR. Use media_import first.');
   return resolved;
 }
 // Résout indifféremment un identifiant média ou un chemin sous workDir.
@@ -58,12 +58,12 @@ export async function localFile(input: string): Promise<string> {
  * Le dossier doit rester privé : pas de protection contre les courses TOCTOU.
  */
 export async function newWorkFile(relative: string): Promise<string> {
-  if (!relative || path.isAbsolute(relative) || relative.includes('\0')) throw new Error('Chemin relatif au dossier de travail attendu.');
+  if (!relative || path.isAbsolute(relative) || relative.includes('\0')) throw new Error('A path relative to the work directory is expected.');
   await mkdir(workDir, { recursive: true });
   const root = await realpath(workDir);
   const within = (file: string): void => {
     const rel = path.relative(root, file);
-    if (rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) throw new Error('Chemin hors du dossier de travail interdit.');
+    if (rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) throw new Error('Paths outside the work directory are refused.');
   };
   const target = path.resolve(root, relative);
   within(target);
@@ -77,28 +77,28 @@ export async function newWorkFile(relative: string): Promise<string> {
     }
     parent = await realpath(parent);
     within(parent);
-    if (!(await stat(parent)).isDirectory()) throw new Error('Parent non répertoire.');
+    if (!(await stat(parent)).isDirectory()) throw new Error('Parent is not a directory.');
   }
   const result = path.join(parent, path.basename(target));
   try { await lstat(result); } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return result;
     throw error;
   }
-  throw new Error('Destination existante : écrasement interdit.');
+  throw new Error('Destination already exists: overwriting is refused.');
 }
 export function outputPath(extension: string): string { return path.join(workDir, 'outputs', `${randomUUID()}.${extension}`); }
 export async function run(binary: string, args: string[], signal?: AbortSignal): Promise<string> {
-  if (signal?.aborted) throw new Error('Opération annulée');
+  if (signal?.aborted) throw new Error('Operation cancelled');
   return new Promise((resolve, reject) => {
     // Empêche les protocoles réseau indirects de playlists importées; pas une sandbox.
     const effective = binary === ffmpeg ? args.flatMap(arg => arg === '-i' ? ['-protocol_whitelist', 'file,pipe', arg] : [arg]) : binary === ffprobe && args.includes('-show_streams') ? ['-protocol_whitelist', 'file,pipe', ...args] : args;
     const child = spawn(binary, effective, { stdio: ['ignore', 'pipe', 'pipe'], cwd: workDir });
     let stdout = ''; let stderr = ''; let failure: Error | undefined;
     const abort = (error: Error): void => { failure ||= error; child.kill('SIGKILL'); };
-    const onAbort = (): void => abort(new Error('Opération annulée'));
+    const onAbort = (): void => abort(new Error('Operation cancelled'));
     signal?.addEventListener('abort', onAbort, { once: true }); if (signal?.aborted) onAbort();
-    const timer = setTimeout(() => abort(new Error(`${binary}: délai maximal de 6 heures dépassé`)), 21600000); timer.unref();
-    child.stdout.on('data', (chunk: Buffer) => { if (!failure) { stdout += chunk.toString(); if (Buffer.byteLength(stdout) > 16 * 1024 * 1024) abort(new Error('Sortie trop volumineuse')); } });
+    const timer = setTimeout(() => abort(new Error(`${binary}: exceeded the 6 hour limit`)), 21600000); timer.unref();
+    child.stdout.on('data', (chunk: Buffer) => { if (!failure) { stdout += chunk.toString(); if (Buffer.byteLength(stdout) > 16 * 1024 * 1024) abort(new Error('Output too large')); } });
     child.stderr.on('data', (chunk: Buffer) => { stderr = (stderr + chunk.toString()).slice(-65536); });
     child.once('error', error => { failure = error; });
     // Attendre close avant nettoyage des fichiers même après annulation.
@@ -142,12 +142,12 @@ export function registerMedia(server: ToolServer): void {
       if (remote) {
         // Agent de confiance: pas de filtrage SSRF des URL privées; ne pas exposer publiquement.
         const response = await fetch(source, { signal: AbortSignal.timeout(300000) });
-        if (!response.ok || !response.body) throw new Error(`Téléchargement HTTP ${response.status}`);
+        if (!response.ok || !response.body) throw new Error(`Download failed: HTTP ${response.status}`);
         let bytes = 0;
-        const limiter = new Transform({ transform(chunk: Buffer, _encoding, callback) { bytes += chunk.length; callback(bytes > 2 * 1024 ** 3 ? new Error('Import limité à 2 Gio') : null, chunk); } });
+        const limiter = new Transform({ transform(chunk: Buffer, _encoding, callback) { bytes += chunk.length; callback(bytes > 2 * 1024 ** 3 ? new Error('Import is capped at 2 GiB') : null, chunk); } });
         await pipeline(Readable.fromWeb(response.body as import('node:stream/web').ReadableStream<Uint8Array>), limiter, createWriteStream(file, { flags: 'wx' }));
       } else {
-        if (!(await stat(source)).isFile()) throw new Error('La source doit être un fichier'); await copyFile(source, file);
+        if (!(await stat(source)).isFile()) throw new Error('The source must be a file'); await copyFile(source, file);
       }
       const record: MediaRecord = { id, path: file, name: name || basename || id, created_at: new Date().toISOString() };
       await atomicJson(recordPath('media', id), record); return record;

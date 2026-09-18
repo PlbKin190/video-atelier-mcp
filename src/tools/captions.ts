@@ -12,7 +12,7 @@ export function registerCaptions(server: ToolServer): void {
   tool(server, 'captions_write_srt', 'Write UTF-8 SRT subtitles. No external service, no key.', { segments: z.array(z.object({ start: nonnegative, end: positive, text: z.string().min(1).max(10000) })).min(1).max(10000) }, async ({ segments }) => {
     let previousEnd = 0;
     const blocks = segments.map((segment, index) => {
-      if (segment.end <= segment.start || segment.start < previousEnd || Math.round(segment.end * 1000) <= Math.round(segment.start * 1000)) throw new Error('Segments ordonnés, sans chevauchement, durée minimale 1 ms');
+      if (segment.end <= segment.start || segment.start < previousEnd || Math.round(segment.end * 1000) <= Math.round(segment.start * 1000)) throw new Error('Segments must be ordered, non-overlapping, and at least 1 ms long');
       previousEnd = segment.end;
       const text = segment.text.replace(/\r/g, '').replace(/\n\s*\n/g, '\n').trim();
       if (!text) throw new Error('Texte vide');

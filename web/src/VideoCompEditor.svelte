@@ -395,7 +395,7 @@
   async function restoreVersion(idx: number) {
     const stepTraceId = (metadata?.step_trace_id ?? metadata?.stepTraceId) as number | undefined;
     if (!stepTraceId) return;
-    if (!confirm(`Restaurer la version #${idx} ? La version courante sera snapshotee.`)) return;
+    if (!confirm(`Restore la version #${idx} ? La version courante sera snapshotee.`)) return;
     saving = true;
     try {
       const res = await fetch(`/api/comps/${stepTraceId}/versions`, {
@@ -1525,7 +1525,7 @@
     }
   }
 
-  // helper : ajoute une nouvelle video incrustation (placeholder, sans asset)
+  // helper : ajoute une nouvelle video incrustation (placeholder, no asset)
   // Resoud la source de l asset (uploaded data URL > URL statique persistee)
   function assetSrc(r: Sam2Region): string {
     return r.ui_data_url || r.ui_url || '';
@@ -1770,31 +1770,31 @@
 
 <div class="comp-editor">
   <div class="toolbar">
-    <button type="button" class="btn-add" onclick={addText}>+ Texte</button>
+    <button type="button" class="btn-add" onclick={addText}>+ Text</button>
     <button type="button" class="btn-add" onclick={addImage}>+ Image</button>
-    <button type="button" class="btn-add" onclick={addVideo} title="Ajouter une video en overlay (file picker)">+ Video</button>
+    <button type="button" class="btn-add" onclick={addVideo} title="Add a video overlay (file picker)">+ Video</button>
     <span class="toolbar-sep"></span>
-    <span class="info">{visibleOverlays.length}/{overlays.length} overlays visibles · t={fmtT(currentTime)}</span>
+    <span class="info">{visibleOverlays.length}/{overlays.length} visible overlays · t={fmtT(currentTime)}</span>
     <span class="toolbar-spacer"></span>
     {#if saveMsg}<span class="save-msg" class:err={saveMsg.includes('fail') || saveMsg.includes('error')}>{saveMsg}</span>{/if}
     <div class="versions-wrap">
-      <button type="button" class="btn-add" onclick={() => { versionsOpen = !versionsOpen; if (versionsOpen) loadVersions(); }} title="Voir les versions sauvegardees">⎌ Versions {versions.length > 0 ? `(${versions.length})` : ''}</button>
+      <button type="button" class="btn-add" onclick={() => { versionsOpen = !versionsOpen; if (versionsOpen) loadVersions(); }} title="View saved versions">⎌ Versions {versions.length > 0 ? `(${versions.length})` : ''}</button>
       {#if versionsOpen}
         <div class="versions-menu">
           <div class="versions-head">
-            <span>Historique</span>
+            <span>History</span>
             <button type="button" class="hero-btn" onclick={() => (versionsOpen = false)}>×</button>
           </div>
           {#if versionsLoading}
-            <span class="sam2-meta dim">Chargement...</span>
+            <span class="sam2-meta dim">Loading...</span>
           {:else if versions.length === 0}
-            <span class="sam2-meta dim">Aucune version. La 1re sauve creera la 1re entree.</span>
+            <span class="sam2-meta dim">No versions yet. La 1re sauve creera la 1re entree.</span>
           {:else}
             <ul class="versions-list">
               {#each versions as v (v.idx)}
                 <li>
                   <span class="sam2-meta">#{v.idx} · {new Date(v.ts).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })} {v.label ? '· ' + v.label : ''}</span>
-                  <button type="button" class="sam2-btn small" onclick={() => restoreVersion(v.idx)}>Restaurer</button>
+                  <button type="button" class="sam2-btn small" onclick={() => restoreVersion(v.idx)}>Restore</button>
                 </li>
               {/each}
             </ul>
@@ -1827,7 +1827,7 @@
             playsinline
           ></video>
         {:else}
-          <div class="no-video">Aucune video</div>
+          <div class="no-video">No video</div>
         {/if}
 
         {#each visibleOverlays as ov (ov.id)}
@@ -1961,7 +1961,7 @@
     <aside class="props-panel">
       {#if !selectedId && !selectedSam2Id}
         <div class="panel-hint">
-          <span class="sam2-meta dim">Click sur un track de la timeline pour editer ses proprietes.</span>
+          <span class="sam2-meta dim">Select a timeline track to edit its properties.</span>
         </div>
       {/if}
 
@@ -1974,7 +1974,7 @@
           <div class="sam2-region selected-region" class:err={r.status === 'error'}>
             <div class="sam2-region-row">
               <span class="sam2-pill kind">{r.ui_kind}</span>
-              <span class="sam2-meta" title={r.ui_name || 'sans asset'}>{r.ui_name || 'aucun asset'}</span>
+              <span class="sam2-meta" title={r.ui_name || 'no asset'}>{r.ui_name || 'no asset'}</span>
               {#if r.sam2_enabled}
                 <span class="sam2-status" data-status={r.status} title={r.error ?? ''}>
                   {r.status === 'done' ? '✓' : r.status === 'error' ? '✕' : r.status === 'running' ? '…' : '○'}
@@ -1984,7 +1984,7 @@
             </div>
 
             <div class="sam2-region-row filters">
-              <label class="micro-field" title="Opacite (0-100%)">
+              <label class="micro-field" title="Opacity (0-100%)">
                 <span class="ph-icon">◐</span>
                 <input type="number" min="0" max="100" step="5"
                   value={Math.round(r.opacity * 100)}
@@ -2022,12 +2022,12 @@
                 </label>
                 <label class="sam2-mode" class:active={!!r.text_prompt}>
                   <input type="radio" name={`mode-${r.id}`} checked={!!r.text_prompt} onchange={() => updateRegion(r.id, { text_prompt: r.text_prompt ?? 'the screen', point: null })} />
-                  <span>Décris</span>
+                  <span>Describe</span>
                 </label>
               </div>
               {#if r.text_prompt !== undefined}
                 <div class="sam2-region-row">
-                  <input type="text" class="sam2-text-input" placeholder="ex: l ecran du laptop"
+                  <input type="text" class="sam2-text-input" placeholder="e.g. the laptop screen"
                     value={r.text_prompt}
                     oninput={(e) => updateRegion(r.id, { text_prompt: (e.currentTarget as HTMLInputElement).value })}
                   />
@@ -2035,7 +2035,7 @@
               {/if}
               {#if r.point}
                 <div class="sam2-region-row">
-                  <span class="sam2-meta dim">point pixel: <strong>{r.point[0]}, {r.point[1]}</strong></span>
+                  <span class="sam2-meta dim">pixel point: <strong>{r.point[0]}, {r.point[1]}</strong></span>
                   <button type="button" class="sam2-btn small" onclick={() => updateRegion(r.id, { point: null })} title="Reset point">×</button>
                 </div>
               {/if}
@@ -2067,7 +2067,7 @@
               />
               {/key}
               <!-- Toggle typing animation : vitesse auto = char_count / (end_t - start_t) -->
-              <label class="typing-toggle" title="Effet typewriter : chars reveles progressivement sur la duree du clip">
+              <label class="typing-toggle" title="Typewriter effect: characters appear progressively over the clip duration">
                 <input type="checkbox" checked={!!sel.typing_animation} onchange={(e) => { sel.typing_animation = (e.currentTarget as HTMLInputElement).checked; dirty = true; }} />
                 <span>⌨ Typing</span>
                 {#if sel.typing_animation}
@@ -2078,7 +2078,7 @@
 
             {#if sel.type === 'image'}
               <label class="hero-input">
-                <input type="text" value={sel.image_url ?? ''} placeholder="URL image" oninput={(e) => { sel.image_url = (e.currentTarget as HTMLInputElement).value; dirty = true; }} />
+                <input type="text" value={sel.image_url ?? ''} placeholder="Image URL" oninput={(e) => { sel.image_url = (e.currentTarget as HTMLInputElement).value; dirty = true; }} />
                 <label class="hero-btn" title="Upload file" style="cursor:pointer;">
                   ⬆
                   <input type="file" accept="image/png,image/svg+xml,image/jpeg,image/webp" style="display:none" onchange={(e) => handleImageUpload(e, sel)} />
@@ -2133,11 +2133,11 @@
                 {#if openSections.fill}
                   <div class="acc-body">
                     <div class="ctrl-row">
-                      <label class="swatch-field full" title="Couleur fond">
+                      <label class="swatch-field full" title="Background color">
                         <span class="swatch-box" style:background={sel.bg_color ?? 'transparent'}></span>
                         <input type="text" placeholder="transparent" value={sel.bg_color ?? ''} oninput={(e) => { sel.bg_color = (e.currentTarget as HTMLInputElement).value || undefined; dirty = true; }} />
                       </label>
-                      <label class="micro-field" title="Opacite fond"><span class="ph-icon">◐</span><input type="number" min="0" max="100" step="5" value={Math.round((sel.bg_opacity ?? 1) * 100)} oninput={(e) => { sel.bg_opacity = +(e.currentTarget as HTMLInputElement).value / 100; dirty = true; }} /></label>
+                      <label class="micro-field" title="Background opacity"><span class="ph-icon">◐</span><input type="number" min="0" max="100" step="5" value={Math.round((sel.bg_opacity ?? 1) * 100)} oninput={(e) => { sel.bg_opacity = +(e.currentTarget as HTMLInputElement).value / 100; dirty = true; }} /></label>
                     </div>
                     <div class="bg-presets">
                       <button type="button" class="bg-pst" onclick={() => { sel.bg_color = 'transparent'; dirty = true; }}>none</button>
@@ -2145,13 +2145,13 @@
                       <button type="button" class="bg-pst dim" onclick={() => { sel.bg_color = 'rgba(0,0,0,0.4)'; dirty = true; }}>dim</button>
                       <button type="button" class="bg-pst dark" onclick={() => { sel.bg_color = 'rgba(0,0,0,0.7)'; dirty = true; }}>dark</button>
                     </div>
-                    <label class="glass-toggle" title="Rendu Apple liquid glass (carte/pill en verre)">
+                    <label class="glass-toggle" title="Apple Liquid Glass appearance (glass card/pill)">
                       <input type="checkbox" checked={!!sel.liquid_glass} onchange={(e) => { sel.liquid_glass = (e.currentTarget as HTMLInputElement).checked; dirty = true; }} />
                       <span>◇ Liquid glass</span>
                     </label>
                     <!-- Radius + presets -->
                     <div class="ctrl-row">
-                      <label class="micro-field" title="Forme (radius px)"><span class="ph-icon">⌐</span><input type="number" min="0" max="100" step="1" bind:value={sel.border_radius_px} placeholder="0" oninput={() => (dirty = true)} /></label>
+                      <label class="micro-field" title="Shape (radius in px)"><span class="ph-icon">⌐</span><input type="number" min="0" max="100" step="1" bind:value={sel.border_radius_px} placeholder="0" oninput={() => (dirty = true)} /></label>
                       <div class="shape-presets">
                         <button type="button" class="icon-btn" title="square" onclick={() => { sel.border_radius_px = 0; dirty = true; }}>□</button>
                         <button type="button" class="icon-btn" title="rounded" onclick={() => { sel.border_radius_px = 8; dirty = true; }}>▢</button>
@@ -2160,11 +2160,11 @@
                     </div>
                     <!-- Border -->
                     <div class="ctrl-row">
-                      <label class="swatch-field" title="Couleur ligne">
+                      <label class="swatch-field" title="Line color">
                         <input type="color" value={sel.border_color ?? '#ffffff'} oninput={(e) => { sel.border_color = (e.currentTarget as HTMLInputElement).value; dirty = true; }} />
                         <span class="swatch-hex">{sel.border_color ?? '#fff'}</span>
                       </label>
-                      <label class="micro-field" title="Epaisseur ligne (px)"><span class="ph-icon">▭</span><input type="number" min="0" max="10" step="1" bind:value={sel.border_width_px} placeholder="0" oninput={() => (dirty = true)} /></label>
+                      <label class="micro-field" title="Line width (px)"><span class="ph-icon">▭</span><input type="number" min="0" max="10" step="1" bind:value={sel.border_width_px} placeholder="0" oninput={() => (dirty = true)} /></label>
                     </div>
                     <!-- Padding -->
                     <div class="ctrl-row">
@@ -2196,7 +2196,7 @@
             <div class="acc-section" class:open={openSections.sam2}>
               <button type="button" class="acc-header" onclick={() => toggleSection('sam2')}>
                 <span class="acc-chev">{openSections.sam2 ? '▾' : '▸'}</span>
-                <span class="acc-title">⌖ Incrustation SAM2</span>
+                <span class="acc-title">⌖ SAM2 compositing</span>
                 {#if sel.sam2?.enabled}
                   <span class="sam2-status inline" data-status={sel.sam2.status ?? 'idle'} title={sel.sam2.error ?? ''}>
                     {sel.sam2.status === 'done' ? '✓' : sel.sam2.status === 'error' ? `✕ ${sel.sam2.error ?? 'error'}` : sel.sam2.status === 'running' ? `… ${sel.sam2.progress?.percent ?? 0}%` : '○'}
@@ -2207,7 +2207,7 @@
                 <div class="acc-body">
                   <label class="sam2-check">
                     <input type="checkbox" checked={!!sel.sam2?.enabled} onchange={(e) => { sel.sam2 = { ...(sel.sam2 ?? {}), enabled: (e.currentTarget as HTMLInputElement).checked }; dirty = true; }} />
-                    <span>Activer le tracking</span>
+                    <span>Enable tracking</span>
                   </label>
                   {#if sel.sam2?.enabled}
                     <div class="ctrl-row sam2-mode-row" style="margin-top:6px;">
@@ -2217,22 +2217,22 @@
                       </label>
                       <label class="sam2-mode" class:active={!!sel.sam2?.point || sam2PickRegionId === sel.id}>
                         <input type="radio" name={`mode-${sel.id}`} checked={!!sel.sam2?.point || sam2PickRegionId === sel.id} onchange={() => { sel.sam2 = { ...sel.sam2!, mode: 'point' }; sam2PickRegionId = sel.id; dirty = true; }} />
-                        <span>{sam2PickRegionId === sel.id ? '… clique sur le frame' : 'Point'}</span>
+                        <span>{sam2PickRegionId === sel.id ? '… click the frame' : 'Point'}</span>
                       </label>
                       <label class="sam2-mode" class:active={!!sel.sam2?.text_prompt}>
                         <input type="radio" name={`mode-${sel.id}`} checked={!!sel.sam2?.text_prompt} onchange={() => { sel.sam2 = { ...sel.sam2!, text_prompt: sel.sam2?.text_prompt ?? 'the screen', point: null, mode: 'text' }; dirty = true; }} />
-                        <span>Décris</span>
+                        <span>Describe</span>
                       </label>
                     </div>
                     {#if sel.sam2?.text_prompt !== undefined}
-                      <input type="text" class="sam2-text-input" placeholder="ex: l ecran du laptop"
+                      <input type="text" class="sam2-text-input" placeholder="e.g. the laptop screen"
                         value={sel.sam2.text_prompt}
                         oninput={(e) => { sel.sam2 = { ...sel.sam2!, text_prompt: (e.currentTarget as HTMLInputElement).value }; dirty = true; }}
                       />
                     {/if}
                     <!-- Filtres edge feather + opacity -->
                     <div class="ctrl-row" style="margin-top:6px;">
-                      <label class="micro-field" title="Opacite incrustation (0-100%)"><span class="ph-icon">◐</span>
+                      <label class="micro-field" title="Composite opacity (0-100%)"><span class="ph-icon">◐</span>
                         <input type="number" min="0" max="100" step="5"
                           value={Math.round((sel.sam2.opacity ?? 1) * 100)}
                           oninput={(e) => { sel.sam2 = { ...sel.sam2!, opacity: Math.max(0, Math.min(1, +(e.currentTarget as HTMLInputElement).value / 100)) }; dirty = true; }} />
@@ -2263,11 +2263,11 @@
       <div class="tl-toggles">
         <button type="button" class="tg" class:on={showFrames} onclick={() => { showFrames = !showFrames; dirty = true; }} title="Rushes / thumbnails">🎞 Frames</button>
         <button type="button" class="tg" class:on={showWaveform} onclick={() => { showWaveform = !showWaveform; dirty = true; }} title="Waveform audio">〰 Waveform</button>
-        <button type="button" class="tg" class:on={showSync} onclick={() => { showSync = !showSync; dirty = true; }} title="Points sync V/A">⤓ Sync</button>
-        <button type="button" class="tg" class:on={showMusic} onclick={() => { showMusic = !showMusic; dirty = true; }} title="Canal bande son">🎵 Music</button>
+        <button type="button" class="tg" class:on={showSync} onclick={() => { showSync = !showSync; dirty = true; }} title="V/A sync points">⤓ Sync</button>
+        <button type="button" class="tg" class:on={showMusic} onclick={() => { showMusic = !showMusic; dirty = true; }} title="Soundtrack channel">🎵 Music</button>
       </div>
       <span class="tl-spacer"></span>
-      <button type="button" class="tg" onclick={autoFitStickyColAndDirty} title="Ajuster auto la largeur de la colonne label">⇲ Auto-fit</button>
+      <button type="button" class="tg" onclick={autoFitStickyColAndDirty} title="Automatically adjust the label column width">⇲ Auto-fit</button>
       <div class="zoom-ctrl">
         <button type="button" class="zoom-btn" onclick={() => { zoom = Math.max(1, zoom / 2); dirty = true; }} disabled={zoom <= 1}>−</button>
         <span class="zoom-val">{zoom}x</span>
@@ -2302,7 +2302,7 @@
       {#each overlays as ov, ovIdx (ov.id)}
         <div class="track-row" class:disabled={ov.enabled === false} class:expanded={expandedTracks[ov.id]} class:reordering={reorderDrag?.id === ov.id}>
           <span class="track-label overlay sticky" title={ov.text ?? ov.id}>
-            <span class="reorder-handle" data-overlay-id={ov.id} onpointerdown={(e) => startReorderDrag(e, ov.id)} title="Drag pour reordonner la stack verticale" role="presentation">⋮⋮</span>
+            <span class="reorder-handle" data-overlay-id={ov.id} onpointerdown={(e) => startReorderDrag(e, ov.id)} title="Drag to reorder the vertical stack" role="presentation">⋮⋮</span>
             <button type="button" class="track-chev" onclick={() => toggleExpand(ov.id)} title={expandedTracks[ov.id] ? 'Reduire' : 'Agrandir'}>{expandedTracks[ov.id] ? '▾' : '▸'}</button>
             <span class="track-type">{ov.type === 'text' ? 'T' : ov.type === 'video' ? 'VID' : 'IMG'}</span>
             <input
@@ -2317,7 +2317,7 @@
               class="track-check"
               checked={ov.enabled !== false}
               onchange={(e) => toggleOverlayEnabled(ov.id, e)}
-              title={ov.enabled === false ? 'Activer overlay' : 'Desactiver overlay'}
+              title={ov.enabled === false ? 'Enable overlay' : 'Disable overlay'}
             />
             <button
               type="button"
@@ -2325,7 +2325,7 @@
               class:armed={armedDeleteId === ov.id}
               onclick={() => confirmDeleteOverlay(ov.id)}
               aria-label="delete overlay"
-              title={armedDeleteId === ov.id ? 'Reclic pour confirmer' : 'Supprimer overlay'}
+              title={armedDeleteId === ov.id ? 'Click again to confirm' : 'Delete overlay'}
             >
               {#if armedDeleteId === ov.id}<span class="del-confirm">?</span>{:else}
                 <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -2404,7 +2404,7 @@
       <!-- SAM2 + filtres = OPTION par incrustation (checkbox sam2_enabled), pas la valeur par defaut -->
       {#each sam2Regions as r, idx (r.id)}
         <div class="track-row sam2-track-row" class:err={r.status === 'error'} class:active={selectedSam2Id === r.id} class:disabled={r.enabled === false} class:expanded={expandedTracks[r.id]}>
-          <span class="track-label sam2 sticky" title={`Video ${idx+1} - ${r.ui_name || 'aucun asset'}`}>
+          <span class="track-label sam2 sticky" title={`Video ${idx+1} - ${r.ui_name || 'no asset'}`}>
             <button type="button" class="track-chev" onclick={() => toggleExpand(r.id)} title={expandedTracks[r.id] ? 'Reduire' : 'Agrandir'}>{expandedTracks[r.id] ? '▾' : '▸'}</button>
             <span class="track-type">{r.sam2_enabled ? '⌖' : (r.ui_kind === 'video' ? '▶' : '🖼')}</span>
             <input
@@ -2419,7 +2419,7 @@
               class="track-check"
               checked={r.enabled !== false}
               onchange={(e) => updateRegion(r.id, { enabled: (e.currentTarget as HTMLInputElement).checked })}
-              title={r.enabled === false ? 'Activer video' : 'Desactiver video'}
+              title={r.enabled === false ? 'Enable video' : 'Disable video'}
             />
             <button
               type="button"
@@ -2427,7 +2427,7 @@
               class:armed={armedDeleteId === r.id}
               onclick={() => confirmDeleteSam2(r.id)}
               aria-label="delete"
-              title={armedDeleteId === r.id ? 'Reclic pour confirmer' : 'Supprimer'}
+              title={armedDeleteId === r.id ? 'Click again to confirm' : 'Supprimer'}
             >
               {#if armedDeleteId === r.id}<span class="del-confirm">?</span>{:else}
                 <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -2449,7 +2449,7 @@
               class:empty={!assetSrc(r)}
               style:left={secToPct(r.start_t) + '%'}
               style:width={secToPct(Math.max(0.5, r.end_t - r.start_t)) + '%'}
-              title={`${r.ui_name || 'aucun asset'} (${r.ui_kind}) · ${fmtT(r.start_t)}-${fmtT(r.end_t)} · ${r.status}`}
+              title={`${r.ui_name || 'no asset'} (${r.ui_kind}) · ${fmtT(r.start_t)}-${fmtT(r.end_t)} · ${r.status}`}
               onpointerdown={(e) => startSam2Drag(e, r, 'move')}
               role="button"
               tabindex="0"
@@ -2477,11 +2477,11 @@
         <span class="track-label video sticky">
           <button type="button" class="track-chev" onclick={() => toggleExpand('video')} title={expandedTracks['video'] ? 'Reduire' : 'Agrandir'}>{expandedTracks['video'] ? '▾' : '▸'}</button>
           <span class="track-name"><Icon name="Film" size={14} /> Video</span>
-          <button type="button" class="track-mini" onclick={addRush} title="Ajouter un rush a partir de la position actuelle">+R</button>
-          <input type="checkbox" class="track-check" checked={videoTrackEnabled} onchange={() => { videoTrackEnabled = !videoTrackEnabled; dirty = true; }} title="Activer / desactiver track video" />
+          <button type="button" class="track-mini" onclick={addRush} title="Add a clip starting at the current position">+R</button>
+          <input type="checkbox" class="track-check" checked={videoTrackEnabled} onchange={() => { videoTrackEnabled = !videoTrackEnabled; dirty = true; }} title="Toggle the video track" />
           <button type="button" class="track-mini del" class:armed={armedDeleteId === 'video'}
             onclick={() => { if (armedDeleteId === 'video') { videoTrackEnabled = false; armedDeleteId = null; } else { armDelete('video'); } }}
-            aria-label="delete video" title={armedDeleteId === 'video' ? 'Reclic pour confirmer' : 'Supprimer video'}>
+            aria-label="delete video" title={armedDeleteId === 'video' ? 'Click again to confirm' : 'Delete video'}>
             {#if armedDeleteId === 'video'}<span class="del-confirm">?</span>{:else}
               <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5h11"/><path d="M6.5 4.5V3a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1.5"/><path d="M4.5 4.5l.5 9a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1l.5-9"/><path d="M7 7v5"/><path d="M9 7v5"/></svg>
             {/if}
@@ -2509,8 +2509,8 @@
                 >
                   <span class="rush-edge l" onpointerdown={(e) => startRushDrag(e, i, 'resize-l')} role="presentation"></span>
                   <span class="rush-marker-label">{rush.label ?? `R${i+1}`}</span>
-                  <button type="button" class="rush-action split" onclick={(e) => { e.stopPropagation(); splitRushAtCurrent(i); }} title="Couper a la position actuelle">✂</button>
-                  <button type="button" class="rush-action del" onclick={(e) => { e.stopPropagation(); deleteRush(i); }} title="Supprimer ce rush">×</button>
+                  <button type="button" class="rush-action split" onclick={(e) => { e.stopPropagation(); splitRushAtCurrent(i); }} title="Split at the current position">✂</button>
+                  <button type="button" class="rush-action del" onclick={(e) => { e.stopPropagation(); deleteRush(i); }} title="Delete this clip">×</button>
                   <span class="rush-edge r" onpointerdown={(e) => startRushDrag(e, i, 'resize-r')} role="presentation"></span>
                 </div>
               {/each}
@@ -2531,10 +2531,10 @@
             aria-label="Audio volume"
           />
           <span class="vol-val">{Math.round(audioVolume * 100)}</span>
-          <input type="checkbox" class="track-check" checked={audioTrackEnabled} onchange={() => { audioTrackEnabled = !audioTrackEnabled; dirty = true; }} title="Activer / desactiver track audio" />
+          <input type="checkbox" class="track-check" checked={audioTrackEnabled} onchange={() => { audioTrackEnabled = !audioTrackEnabled; dirty = true; }} title="Toggle the audio track" />
           <button type="button" class="track-mini del" class:armed={armedDeleteId === 'audio'}
             onclick={() => { if (armedDeleteId === 'audio') { audioTrackEnabled = false; armedDeleteId = null; } else { armDelete('audio'); } }}
-            aria-label="delete audio" title={armedDeleteId === 'audio' ? 'Reclic pour confirmer' : 'Supprimer audio'}>
+            aria-label="delete audio" title={armedDeleteId === 'audio' ? 'Click again to confirm' : 'Delete audio'}>
             {#if armedDeleteId === 'audio'}<span class="del-confirm">?</span>{:else}
               <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5h11"/><path d="M6.5 4.5V3a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1.5"/><path d="M4.5 4.5l.5 9a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1l.5-9"/><path d="M7 7v5"/><path d="M9 7v5"/></svg>
             {/if}
@@ -2557,7 +2557,7 @@
             {:else}
               <span class="clip-label">
                 {#if videoEl && (videoEl as HTMLVideoElement & { webkitAudioDecodedByteCount?: number }).webkitAudioDecodedByteCount === 0}
-                  ⚠ video sans piste audio ({fmtT(totalDur)})
+                  ⚠ video without an audio track ({fmtT(totalDur)})
                 {:else}
                   voiceover FR ({fmtT(totalDur)})
                 {/if}
@@ -2587,10 +2587,10 @@
               />
               <span class="vol-val">{Math.round(musicVolume * 100)}</span>
             {/if}
-            <input type="checkbox" class="track-check" checked={musicTrackEnabled} onchange={() => { musicTrackEnabled = !musicTrackEnabled; dirty = true; }} title="Desactiver et cacher la ligne music" />
+            <input type="checkbox" class="track-check" checked={musicTrackEnabled} onchange={() => { musicTrackEnabled = !musicTrackEnabled; dirty = true; }} title="Disable and hide the music row" />
             <button type="button" class="track-mini del" class:armed={armedDeleteId === 'music'}
               onclick={() => { if (armedDeleteId === 'music') { musicTrackEnabled = false; armedDeleteId = null; } else { armDelete('music'); } }}
-              aria-label="delete music" title={armedDeleteId === 'music' ? 'Reclic pour confirmer' : 'Supprimer music'}>
+              aria-label="delete music" title={armedDeleteId === 'music' ? 'Click again to confirm' : 'Delete music'}>
               {#if armedDeleteId === 'music'}<span class="del-confirm">?</span>{:else}
                 <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.5h11"/><path d="M6.5 4.5V3a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1.5"/><path d="M4.5 4.5l.5 9a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1l.5-9"/><path d="M7 7v5"/><path d="M9 7v5"/></svg>
               {/if}
