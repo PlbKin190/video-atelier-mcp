@@ -109,17 +109,50 @@ The agent builds; you finish. `ui_start` serves the editor the tools write into,
 ui_start  ->  { "url": "http://127.0.0.1:4321" }
 ```
 
-Pick a composition in the sidebar and you get the real thing: video preview, an inspector for the
-selected overlay, a timeline with frame thumbnails and audio tracks, rich text with per-run styling,
-and the SAM2 tracking panel. What you change is saved straight back into the composition JSON, so
-the next agent call sees your edits — and every save keeps a version you can restore.
+An agent gets the assembly in place quickly, but its first pass is coarse: a shot duration or a
+text position expressed as a percentage is only a starting point. Human fine-tuning catches a
+caption arriving one frame early, an overlay covering a face, or a cut that feels too abrupt.
 
-Text overlays are first-class in the model, not a preview trick: `comp_add_text`, `comp_update_text`
-and `comp_remove_text` do from the agent side exactly what the editor does from yours, and
-`render_start` burns them in with `drawtext`.
+In the editor, drag text and image overlays to position them and use their resize handles to
+adjust their size. Move their timeline blocks and trim their edges to set when they appear and
+disappear. Adjust text font, size, colour and background, and enable SAM2 tracking separately for
+each overlay that needs to follow motion.
+
+![The editor, open on a composition built by the MCP tools](docs/images/editor-screenshot.png)
+
+The hand-off is a round trip:
+
+1. The agent assembles the composition with `comp_add_clip`, `comp_add_text` and `comp_add_overlay`.
+2. Call `ui_start`, open the editor and refine that assembly. Each saved change updates the same
+   composition JSON — not a separate human-only copy.
+3. The agent calls `comp_get_timeline` to read the revised composition and continues from your
+   edits, rather than rebuilding from its earlier assumptions.
+
+The **Versions** button keeps a history: restore an earlier version if a manual adjustment breaks
+the result.
+
+The editor does not generate new shots; it positions and tunes material the MCP tools have already
+created. Text overlays are first-class in the model, not a preview trick: `comp_add_text`,
+`comp_update_text` and `comp_remove_text` do from the agent side exactly what the editor does from
+yours, and `render_start` burns them in with `drawtext`.
 
 The editor is served from `web-dist/`, which the Docker image builds. Outside the image, build it
 once with `cd web && npm ci && npm run build`.
+
+## A real render
+
+<video src="docs/videos/studio-pipeline-example.mp4" controls muted playsinline poster="docs/images/pipeline-example-poster.jpg" width="720"></video>
+
+`master-workflow-founding-en-v5-glass.mp4` is a real 40-second, 1920×1080 export explaining the
+Studio's own video pipeline, with silhouetted faces, purple/cyan particles and geometric forms in a
+"Liquid Glass" treatment. Editing, short subtitles such as "The brief enters. The angle locks.",
+and graphic overlays come together in a finished piece from the pipeline this repository was
+extracted from — not from this repository's synthetic test footage or example tools.
+
+The visuals include material produced by an AI generation backend; see
+[Content and model usage](#content-and-model-usage) for attribution. This video is provided as an
+illustration of the full Studio pipeline, which is outside this repository's scope: running this
+repository's code alone does not produce it.
 
 ## Dependencies
 
@@ -175,7 +208,11 @@ quoted here, since the model is being retired and pricing has moved.
 
 If you use a generation backend, the resulting footage is model-generated: label it as such where
 your audience or platform expects it, and follow the provider's terms (Azure OpenAI for Sora,
-Adobe for Firefly). This repository ships no generated content and no third-party footage.
+Adobe for Firefly). The example rushes are synthesised by ffmpeg's own test sources, so there is no
+provenance to track there. The one exception is `docs/videos/studio-pipeline-example.mp4`: a real
+render from the Studio pipeline this repository is extracted from, included for illustration and
+containing AI-generated visuals — see [A real render](#a-real-render) above. This repository ships
+no third-party footage and no client content.
 
 ## Limitations
 

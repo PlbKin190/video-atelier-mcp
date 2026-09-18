@@ -49,7 +49,7 @@ async function cheminValide(input: string): Promise<string> {
 export async function localFile(input: string): Promise<string> {
   if (idSchema.safeParse(input).success) {
     try { return await cheminValide((await readJson<MediaRecord>(recordPath('media', input))).path); }
-    catch { /* identifiant inconnu du magasin : on le retente comme chemin */ }
+    catch { /* id unknown to the store: retry it as a path */ }
   }
   return cheminValide(input);
 }

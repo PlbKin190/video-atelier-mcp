@@ -83,7 +83,7 @@ export function registerTimeline(server: ToolServer): void {
   tool(server, 'comp_add_overlay', 'Add an image or video overlay (overlay video is muted, last frame held).', { comp_id: idSchema, media_id: idSchema, start: nonnegative.default(0), duration: positive, x: z.number().int().min(0).default(0), y: z.number().int().min(0).default(0), width: z.number().int().min(2).max(7680), height: z.number().int().min(2).max(7680) }, async ({ comp_id, ...overlay }) => { await mediaPath(overlay.media_id); return mutateComp(comp_id, comp => { comp.overlays.push({ id: randomUUID(), ...overlay }); }); });
   tool(server, 'comp_add_transition', 'Fade to black then back, with no overlap and no change in duration. Not a crossfade.', { comp_id: idSchema, after_clip_id: idSchema, type: z.literal('fade_black').default('fade_black'), duration: positive }, async ({ comp_id, ...transition }) => mutateComp(comp_id, comp => {
     const index = comp.clips.findIndex(c => c.id === transition.after_clip_id);
-    if (index < 0 || index === comp.clips.length - 1) throw new Error('Ajouter les deux clips avant la transition');
+    if (index < 0 || index === comp.clips.length - 1) throw new Error('Add both clips before the transition');
     if (transition.duration * 2 > Math.min(comp.clips[index]!.duration, comp.clips[index + 1]!.duration)) throw new Error('Fondu trop long');
     comp.transitions = comp.transitions.filter(t => t.after_clip_id !== transition.after_clip_id); comp.transitions.push(transition);
   }));

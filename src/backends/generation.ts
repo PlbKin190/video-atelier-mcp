@@ -29,7 +29,7 @@ function relativeSource(source: string): string {
   if (!source || path.isAbsolute(source) || source.includes("\0")) throw new Error("Chemin relatif au dossier de travail attendu.");
   const target = path.resolve(workDir, source);
   const relative = path.relative(workDir, target);
-  if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`)) throw new Error("Chemin hors du dossier de travail interdit.");
+  if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`)) throw new Error("Paths outside the work directory are refused.");
   return target;
 }
 function validId(id: string): void {

@@ -1,5 +1,5 @@
 /**
- * RichText : modele unifie pour tout texte stylise dans le Studio.
+ * RichText: a unified model for every styled text in the editor.
  *
  * Utilise par :
  *  - Overlays texte de la composition video (static)
@@ -49,7 +49,7 @@ export function fromString(text: string, style?: RichStyle): RichText {
   return { spans: [{ text, style }] };
 }
 
-/** Slice les premiers `n` caracteres en conservant les styles (pour typewriter). */
+/** Slices the first `n` characters while preserving styles (for a typewriter effect). */
 export function sliceChars(rt: RichText, n: number): RichText {
   if (n <= 0) return { spans: [], block_align: rt.block_align, line_height: rt.line_height };
   const out: RichSpan[] = [];

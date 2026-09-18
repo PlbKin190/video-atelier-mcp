@@ -18,7 +18,7 @@
     color?: string;
     font_size_px?: number;
     font_weight?: number;       // 400-900
-    font_family?: string;       // override de la typographie pour cette ligne
+    font_family?: string;       // typography override for this line
   }
 
   // SAM2 = OPTION per overlay (regardless of type), not a separate track.
@@ -72,12 +72,12 @@
   }
 
   interface Rush {
-    start_t: number;             // position dans la timeline (derivee de la sequence)
+    start_t: number;             // position in the timeline (derived from the sequence)
     end_t: number;               // = start_t + (src_out - src_in)
     video_url?: string;
     duration_s?: number;         // duree native du fichier source
-    src_in?: number;             // trim IN dans le fichier source (sec)
-    src_out?: number;            // trim OUT dans le fichier source (sec)
+    src_in?: number;             // trim IN in the source file (sec)
+    src_out?: number;            // trim OUT in the source file (sec)
     thumbnail_url?: string;
     label?: string;
     color?: string;
@@ -2615,7 +2615,7 @@
                 <span class="clip-label">{music.name ?? 'bande son'} · vol {Math.round(musicVolume * 100)}%</span>
               </div>
             {:else}
-              <div class="clip-empty">Aucune bande son · ajouter via output_assets.music_track</div>
+              <div class="clip-empty">No audio track · add one via output_assets.music_track</div>
             {/if}
           </div>
         </div>
