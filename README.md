@@ -95,6 +95,9 @@ replacement onto it, frame by frame.
 
 ![Screen replacement, stage by stage](docs/images/screen-replacement-stages.png)
 
+*The replacement content in the last panel is blurred: the shot these debug frames come from
+carried a private interface. The geometry is untouched — that is what the figure is about.*
+
 These tools need the `sam2` Docker profile — see below. The other 37 tools do not.
 
 ## Taking over by hand
