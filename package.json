@@ -2,7 +2,7 @@
   "name": "video-atelier-mcp",
   "version": "0.1.0",
   "description": "Standalone MCP server for agent-driven video editing: local store, stdio transport, ffmpeg, SAM2 screen replacement, and a visual editor.",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "type": "module",
   "bin": {
     "video-atelier-mcp": "dist/index.js"

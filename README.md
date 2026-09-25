@@ -11,6 +11,14 @@ backend.
 It runs as a stdio MCP server in Docker. **No API key is needed** to cut, caption, composite,
 render or export.
 
+> **Licence, and the other repository.** This project is **source-available**, not OSI open
+> source: [PolyForm Noncommercial 1.0.0](LICENSE) grants personal, academic, charitable and
+> public-sector use, and commercial use by arrangement. GitHub shows no licence badge because
+> PolyForm sits outside its detection list — the terms are in [LICENSE](LICENSE), in full.
+>
+> If you need a permissively licensed server instead, [video-editor-mcp](https://github.com/PlbKin190/video-editor-mcp)
+> is the minimal half: nine ffmpeg tools, Apache 2.0, no editor UI and no HTTP mode.
+
 ```bash
 git clone <this repo> && cd video-atelier-mcp
 mkdir -p work/in && cp /path/to/your/footage/*.mp4 work/in/
@@ -246,7 +254,8 @@ for SAM2.
 
 ## License
 
-**PolyForm Noncommercial 1.0.0** — see [LICENSE](LICENSE).
+**PolyForm Noncommercial 1.0.0** (SPDX: `PolyForm-Noncommercial-1.0.0`) — see [LICENSE](LICENSE).
+This is a source-available licence, not an OSI-approved open-source one.
 
 Free for any noncommercial purpose: personal use, study, hobby projects, and use by charities,
 schools, public research bodies and government. Commercial use is not granted by this licence —
